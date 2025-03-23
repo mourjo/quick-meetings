@@ -1,13 +1,13 @@
 package me.mourjo;
 
-/**
- * Hello world!
- *
- */
-public class App 
-{
+public class App {
+
+    public static String saySomething() {
+        return "Hello, world!";
+    }
+
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        System.out.println( saySomething());
     }
 }
