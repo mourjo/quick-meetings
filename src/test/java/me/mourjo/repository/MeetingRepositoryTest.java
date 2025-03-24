@@ -1,9 +1,8 @@
-package me.mourjo.me.mourjo.repository;
+package me.mourjo.repository;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import me.mourjo.entities.Meeting;
-import me.mourjo.repository.MeetingRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
