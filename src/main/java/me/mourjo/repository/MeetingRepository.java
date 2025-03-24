@@ -29,7 +29,9 @@ public class MeetingRepository {
                 .select(Meeting.idField())
                 .from(Meeting.table())
                 .where(
-                    Meeting.endTimeField().greaterOrEqual(start).and(
+                    (
+                        Meeting.endTimeField().greaterOrEqual(start)
+                    ).and(
                         Meeting.startTimeField().lessOrEqual(end)
                     )
                 )
