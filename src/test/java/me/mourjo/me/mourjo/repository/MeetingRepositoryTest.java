@@ -1,11 +1,7 @@
 package me.mourjo.me.mourjo.repository;
 
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.Temporal;
 import java.util.Optional;
-import java.util.UUID;
-import lombok.extern.slf4j.Slf4j;
 import me.mourjo.entities.Meeting;
 import me.mourjo.repository.MeetingRepository;
 import org.junit.jupiter.api.Assertions;

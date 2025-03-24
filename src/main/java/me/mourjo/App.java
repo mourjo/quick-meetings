@@ -6,8 +6,7 @@ public class App {
         return "Hello, world!";
     }
 
-    public static void main( String[] args )
-    {
-        System.out.println( saySomething());
+    public static void main(String[] args) {
+        System.out.println(saySomething());
     }
 }

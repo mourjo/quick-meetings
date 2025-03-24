@@ -1,4 +1,5 @@
 package me.mourjo.entities;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
@@ -12,34 +13,21 @@ import org.jooq.impl.DSL;
 @Getter
 @Table(name = "meetings")
 public class Meeting {
-    @Column(name="id")
+
+    @Column(name = "id")
     long id;
 
-    @Column(name="name")
+    @Column(name = "name")
     String name;
 
     @Column(name = "start_at")
     OffsetDateTime startTime;
-
-    @Override
-    public String toString() {
-        return "Meeting{" +
-            "id=" + id +
-            ", name='" + name + '\'' +
-            ", startTime=" + startTime +
-            ", endTime=" + endTime +
-            '}';
-    }
-
     @Column(name = "end_at")
     OffsetDateTime endTime;
-
     @Column(name = "created_at")
     OffsetDateTime createdAt;
-
     @Column(name = "updated_at")
     OffsetDateTime updatedAt;
-
 
     public static Field<Long> idField() {
         return DSL.field("id", Long.class);
@@ -60,6 +48,7 @@ public class Meeting {
     public static Field<OffsetDateTime> createdAtField() {
         return DSL.field("created_at", OffsetDateTime.class);
     }
+
     public static Field<OffsetDateTime> updatedAtField() {
         return DSL.field("updated_at", OffsetDateTime.class);
     }
@@ -77,6 +66,16 @@ public class Meeting {
             createdAtField(),
             updatedAtField(),
         };
+    }
+
+    @Override
+    public String toString() {
+        return "Meeting{" +
+            "id=" + id +
+            ", name='" + name + '\'' +
+            ", startTime=" + startTime +
+            ", endTime=" + endTime +
+            '}';
     }
 
 }

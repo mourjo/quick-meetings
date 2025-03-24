@@ -10,6 +10,7 @@ import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
 public class MeetingRepository {
+
     @SneakyThrows
     public int insert(String name, OffsetDateTime from, OffsetDateTime to) {
         try (Connection conn = Database.getConnection()) {

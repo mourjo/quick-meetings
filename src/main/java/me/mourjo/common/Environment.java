@@ -1,6 +1,9 @@
 package me.mourjo.common;
 
-import static me.mourjo.common.Constants.*;
+import static me.mourjo.common.Constants.PG_DB_ENV_VAR;
+import static me.mourjo.common.Constants.PG_HOST_ENV;
+import static me.mourjo.common.Constants.PG_PORT_ENV_VAR;
+import static me.mourjo.common.Constants.PG_USER_ENV_VAR;
 
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
