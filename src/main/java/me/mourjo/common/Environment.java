@@ -19,7 +19,7 @@ public class Environment {
         postgresHost = getEnv(PG_HOST_ENV, "localhost");
         postgresPort = getEnv(PG_PORT_ENV_VAR, "5432");
         postgresUser = getEnv(PG_USER_ENV_VAR, "justin");
-        postgresDatabase = getEnv(PG_DB_ENV_VAR, "soc_kv_db");
+        postgresDatabase = getEnv(PG_DB_ENV_VAR, "quick_meetings_test_db");
 
         String defaultPort = "8818";
         int port;

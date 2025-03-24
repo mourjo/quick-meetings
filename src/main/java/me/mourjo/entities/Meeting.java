@@ -21,6 +21,16 @@ public class Meeting {
     @Column(name = "start_at")
     OffsetDateTime startTime;
 
+    @Override
+    public String toString() {
+        return "Meeting{" +
+            "id=" + id +
+            ", name='" + name + '\'' +
+            ", startTime=" + startTime +
+            ", endTime=" + endTime +
+            '}';
+    }
+
     @Column(name = "end_at")
     OffsetDateTime endTime;
 
