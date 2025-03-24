@@ -44,7 +44,7 @@
               <path>
                 <artifactId>lombok</artifactId>
                 <groupId>org.projectlombok</groupId>
-                <version>1.18.34</version>
+                <version>${lombok.version}</version>
               </path>
             </annotationProcessorPaths>
           </configuration>
@@ -55,6 +55,39 @@
     </pluginManagement>
   </build>
   <dependencies>
+
+    <dependency>
+      <artifactId>jakarta.persistence-api</artifactId>
+      <groupId>jakarta.persistence</groupId>
+      <version>3.2.0</version>
+    </dependency>
+
+    <dependency>
+      <artifactId>lombok</artifactId>
+      <groupId>org.projectlombok</groupId>
+      <scope>provided</scope>
+      <version>${lombok.version}</version>
+    </dependency>
+    <dependency>
+      <artifactId>jooq</artifactId>
+      <groupId>org.jooq</groupId>
+      <version>3.19.10</version>
+    </dependency>
+    <dependency>
+      <artifactId>jooq-meta</artifactId>
+      <groupId>org.jooq</groupId>
+      <version>3.19.10</version>
+    </dependency>
+    <dependency>
+      <artifactId>jooq-codegen</artifactId>
+      <groupId>org.jooq</groupId>
+      <version>3.19.10</version>
+    </dependency>
+    <dependency>
+      <artifactId>postgresql</artifactId>
+      <groupId>org.postgresql</groupId>
+      <version>42.6.1</version>
+    </dependency>
     <dependency>
       <groupId>net.jqwik</groupId>
       <artifactId>jqwik</artifactId>
@@ -76,6 +109,11 @@
       <groupId>org.junit.jupiter</groupId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <version>2.17.2</version>
+    </dependency>
   </dependencies>
   <dependencyManagement>
     <dependencies>
@@ -95,6 +133,7 @@
 
 
   <properties>
+    <lombok.version>1.18.34</lombok.version>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

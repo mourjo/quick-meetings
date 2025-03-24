@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16.4
+    container_name: postgres_quick_meetings
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=quick_meetings
+      - POSTGRES_PASSWORD=quick_meetings
+      - POSTGRES_USER=justin
+    ports:
+      - '5432:5432'
+    volumes:
+      - './tmp/volumes/postgres:/var/lib/postgresql/data'
+      - './src/test/resources/init.sql:/docker-entrypoint-initdb.d/init.sql'
