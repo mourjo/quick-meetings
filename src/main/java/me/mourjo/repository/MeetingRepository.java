@@ -21,6 +21,24 @@ public class MeetingRepository {
         }
     }
 
+    @SneakyThrows
+    public boolean exists(OffsetDateTime start, OffsetDateTime end) {
+        try (Connection conn = Database.getConnection()) {
+            var conflictingMeetings = DSL.using(conn, SQLDialect.POSTGRES)
+                .select(Meeting.idField())
+                .from(Meeting.table())
+                .where(
+                    Meeting.endTimeField().greaterOrEqual(start).and(
+                        Meeting.startTimeField().lessOrEqual(end)
+                    )
+                )
+                .limit(1)
+                .fetchInto(Meeting.class);
+
+            return !conflictingMeetings.isEmpty();
+        }
+    }
+
 
     @SneakyThrows
     public List<Meeting> fetch(String name) {
