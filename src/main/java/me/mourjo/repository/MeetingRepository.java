@@ -23,6 +23,17 @@ public class MeetingRepository {
     }
 
     @SneakyThrows
+    public List<Meeting> meetingsInRange(OffsetDateTime ts) {
+        try (Connection conn = Database.getConnection()) {
+            return DSL.using(conn, SQLDialect.POSTGRES)
+                .select(Meeting.asterisk())
+                .from(Meeting.table())
+                .where(Meeting.startTimeField().greaterOrEqual(ts).and(Meeting.endTimeField().lessOrEqual(ts)))
+                .fetchInto(Meeting.class);
+        }
+    }
+
+    @SneakyThrows
     public boolean exists(OffsetDateTime start, OffsetDateTime end) {
         try (Connection conn = Database.getConnection()) {
             var conflictingMeetings = DSL.using(conn, SQLDialect.POSTGRES)
@@ -39,6 +50,15 @@ public class MeetingRepository {
                 .fetchInto(Meeting.class);
 
             return !conflictingMeetings.isEmpty();
+        }
+    }
+
+    @SneakyThrows
+    public int deleteAll() {
+        try (Connection conn = Database.getConnection()) {
+            return DSL.using(conn, SQLDialect.POSTGRES)
+                .deleteFrom(Meeting.table())
+                .execute();
         }
     }
 

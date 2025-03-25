@@ -22,10 +22,13 @@ public class Meeting {
 
     @Column(name = "start_at")
     OffsetDateTime startTime;
+
     @Column(name = "end_at")
     OffsetDateTime endTime;
+
     @Column(name = "created_at")
     OffsetDateTime createdAt;
+
     @Column(name = "updated_at")
     OffsetDateTime updatedAt;
 
