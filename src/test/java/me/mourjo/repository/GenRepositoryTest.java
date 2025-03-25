@@ -4,7 +4,6 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import me.mourjo.entities.Meeting;
-import net.jqwik.api.Assume;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -44,6 +43,7 @@ public class GenRepositoryTest {
     @AfterContainer
     public static void teardown() {
         if (id != -1) {
+            log.info("Running teardown");
             repo.delete(id);
         }
     }
@@ -86,7 +86,6 @@ public class GenRepositoryTest {
         @ForAll @IntRange(min = 1, max = 30) int startOffset,
         @ForAll @IntRange(min = 0, max = 30) int endOffset
     ) {
-        Assume.that(startOffset + endOffset < 60);
         Assertions.assertTrue(
             repo.exists(now.plusMinutes(startOffset), now.plusMinutes(endOffset))
         );
