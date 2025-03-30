@@ -3,7 +3,7 @@ package me.mourjo.repository;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import me.mourjo.entities.Meeting;
+import me.mourjo.entities.generated.tables.records.MeetingsRecord;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -32,7 +32,7 @@ public class GenRepositoryTest {
 
         Assertions.assertFalse(repo.fetchAll().isEmpty());
 
-        Optional<Meeting> insertedMeeting = repo.fetchAll().stream()
+        Optional<MeetingsRecord> insertedMeeting = repo.fetchAll().stream()
             .filter(row -> name.equals(row.getName()))
             .findFirst();
 
