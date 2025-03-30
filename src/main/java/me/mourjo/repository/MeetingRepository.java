@@ -27,8 +27,7 @@ public class MeetingRepository {
     public int insert(String name, OffsetDateTime from, OffsetDateTime to) {
         return dsl
             .insertInto(MEETINGS)
-            .columns(MEETINGS.NAME, MEETINGS.START_AT,
-                MEETINGS.END_AT)
+            .columns(MEETINGS.NAME, MEETINGS.START_AT, MEETINGS.END_AT)
             .values(name, from, to)
             .execute();
     }
