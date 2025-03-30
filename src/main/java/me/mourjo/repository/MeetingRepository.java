@@ -20,7 +20,7 @@ public class MeetingRepository {
     }
 
     public MeetingRepository() {
-        this.dsl = DSL.using(Database.getDataSource(), SQLDialect.POSTGRES);
+        dsl = DSL.using(Database.getDataSource(), SQLDialect.POSTGRES);
     }
 
     @SneakyThrows
@@ -31,57 +31,50 @@ public class MeetingRepository {
                 MEETINGS.END_AT)
             .values(name, from, to)
             .execute();
-
     }
 
     @SneakyThrows
     public List<MeetingsRecord> meetingsInRange(OffsetDateTime ts) {
         return dsl
-            .select(DSL.asterisk())
-            .from(MEETINGS)
-            .where(MEETINGS.START_AT.greaterOrEqual(ts)
-                .and(MEETINGS.END_AT.lessOrEqual(ts)))
-            .fetchInto(MeetingsRecord.class);
-
+            .selectFrom(MEETINGS)
+            .where(
+                (
+                    MEETINGS.START_AT.greaterOrEqual(ts)
+                ).and(
+                    MEETINGS.END_AT.lessOrEqual(ts)
+                )
+            )
+            .fetch();
     }
 
     @SneakyThrows
     public boolean exists(OffsetDateTime start, OffsetDateTime end) {
-        var conflictingMeetings = dsl
-            .select(MEETINGS.ID)
-            .from(MEETINGS)
+        var query = dsl.selectFrom(MEETINGS)
             .where(
                 (
                     MEETINGS.END_AT.greaterOrEqual(start)
                 ).and(
                     MEETINGS.START_AT.lessOrEqual(end)
                 )
-            )
-            .limit(1)
-            .fetchInto(MeetingsRecord.class);
+            );
 
-        return !conflictingMeetings.isEmpty();
-
+        return dsl.fetchExists(query);
     }
 
     @SneakyThrows
     public int deleteAll() {
-
         return dsl
             .deleteFrom(MEETINGS)
             .execute();
-
     }
 
 
     @SneakyThrows
     public List<MeetingsRecord> fetch(String name) {
         return dsl
-            .select(DSL.asterisk())
-            .from(MEETINGS)
+            .selectFrom(MEETINGS)
             .where(MEETINGS.NAME.eq(name))
-            .fetchInto(MeetingsRecord.class);
-
+            .fetch();
     }
 
     @SneakyThrows
@@ -90,14 +83,12 @@ public class MeetingRepository {
             .deleteFrom(MEETINGS)
             .where(MEETINGS.ID.eq(id))
             .execute();
-
     }
 
     @SneakyThrows
     public List<MeetingsRecord> fetchAll() {
         return dsl
-            .select(DSL.asterisk())
-            .from(MEETINGS)
-            .fetchInto(MeetingsRecord.class);
+            .selectFrom(MEETINGS)
+            .fetch();
     }
 }
