@@ -12,7 +12,6 @@ public class Database {
         String port = Environment.getPostgresPort();
         String database = Environment.getPostgresDatabase();
         String username = Environment.getPostgresUser();
-        String connectionString = "jdbc:postgresql://%s:%s/%s".formatted(host, port, database);
 
         var dataSource = new PGSimpleDataSource();
         int portNum = Integer.parseInt(port);
@@ -23,7 +22,6 @@ public class Database {
         dataSource.setUser(username);
         dataSource.setPassword("");
 
-        //return DriverManager.getConnection(connectionString, username, null);
         return dataSource;
     }
 }

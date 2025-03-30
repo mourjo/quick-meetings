@@ -47,7 +47,6 @@ public class MeetingRepository {
 
     @SneakyThrows
     public boolean exists(OffsetDateTime start, OffsetDateTime end) {
-
         var conflictingMeetings = dsl
             .select(MEETINGS.ID)
             .from(MEETINGS)
@@ -77,7 +76,6 @@ public class MeetingRepository {
 
     @SneakyThrows
     public List<MeetingsRecord> fetch(String name) {
-
         return dsl
             .select(DSL.asterisk())
             .from(MEETINGS)
@@ -88,7 +86,6 @@ public class MeetingRepository {
 
     @SneakyThrows
     public int delete(int id) {
-
         return dsl
             .deleteFrom(MEETINGS)
             .where(MEETINGS.ID.eq(id))
