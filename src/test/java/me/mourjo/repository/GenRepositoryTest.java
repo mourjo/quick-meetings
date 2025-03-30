@@ -16,7 +16,7 @@ public class GenRepositoryTest {
 
     final static MeetingRepository repo = new MeetingRepository();
     final static OffsetDateTime now = OffsetDateTime.now();
-    static long id = -1;
+    static int id = -1;
 
     @BeforeContainer
     public static void setup() {

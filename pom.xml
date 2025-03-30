@@ -53,6 +53,44 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <artifactId>jooq-codegen-maven</artifactId>
+        <configuration>
+          <generator>
+            <database>
+              <excludes></excludes>
+              <includes>.*</includes>
+              <inputSchema>public</inputSchema>
+              <name>org.jooq.meta.postgres.PostgresDatabase</name>
+            </database>
+            <target>
+              <directory>target/generated-sources/jooq</directory>
+              <packageName>me.mourjo.entities.generated</packageName>
+            </target>
+          </generator>
+          <jdbc>
+            <driver>org.postgresql.Driver</driver>
+            <password>quick_meetings</password>
+            <url>jdbc:postgresql://localhost:5432/quick_meetings_test_db</url>
+            <user>justin</user>
+          </jdbc>
+
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <id>jooq-codegen</id>
+            <phase>generate-sources</phase>
+          </execution>
+        </executions>
+        <groupId>org.jooq</groupId>
+        <version>3.19.10</version>
+      </plugin>
+    </plugins>
   </build>
   <dependencies>
 

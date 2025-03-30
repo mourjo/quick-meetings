@@ -11,7 +11,7 @@ public class MeetingRepositoryTest {
     @Test
     void insert() {
         var repo = new MeetingRepository();
-        long id = -1;
+        int id = -1;
         try {
             var name = "A new Meeting - " + System.currentTimeMillis();
             var now = OffsetDateTime.now();

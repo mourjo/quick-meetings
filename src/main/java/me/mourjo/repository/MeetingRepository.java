@@ -6,6 +6,7 @@ import java.util.List;
 import lombok.SneakyThrows;
 import me.mourjo.common.Database;
 import me.mourjo.entities.Meeting;
+import me.mourjo.entities.generated.tables.Meetings;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 
@@ -15,8 +16,9 @@ public class MeetingRepository {
     public int insert(String name, OffsetDateTime from, OffsetDateTime to) {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .insertInto(Meeting.table())
-                .columns(Meeting.nameField(), Meeting.startTimeField(), Meeting.endTimeField())
+                .insertInto(Meetings.MEETINGS)
+                .columns(Meetings.MEETINGS.NAME, Meetings.MEETINGS.START_AT,
+                    Meetings.MEETINGS.END_AT)
                 .values(name, from, to)
                 .execute();
         }
@@ -26,9 +28,10 @@ public class MeetingRepository {
     public List<Meeting> meetingsInRange(OffsetDateTime ts) {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .select(Meeting.asterisk())
-                .from(Meeting.table())
-                .where(Meeting.startTimeField().greaterOrEqual(ts).and(Meeting.endTimeField().lessOrEqual(ts)))
+                .select(DSL.asterisk())
+                .from(Meetings.MEETINGS)
+                .where(Meetings.MEETINGS.START_AT.greaterOrEqual(ts)
+                    .and(Meetings.MEETINGS.END_AT.lessOrEqual(ts)))
                 .fetchInto(Meeting.class);
         }
     }
@@ -37,13 +40,13 @@ public class MeetingRepository {
     public boolean exists(OffsetDateTime start, OffsetDateTime end) {
         try (Connection conn = Database.getConnection()) {
             var conflictingMeetings = DSL.using(conn, SQLDialect.POSTGRES)
-                .select(Meeting.idField())
-                .from(Meeting.table())
+                .select(Meetings.MEETINGS.ID)
+                .from(Meetings.MEETINGS)
                 .where(
                     (
-                        Meeting.endTimeField().greaterOrEqual(start)
+                        Meetings.MEETINGS.END_AT.greaterOrEqual(start)
                     ).and(
-                        Meeting.startTimeField().lessOrEqual(end)
+                        Meetings.MEETINGS.START_AT.lessOrEqual(end)
                     )
                 )
                 .limit(1)
@@ -57,7 +60,7 @@ public class MeetingRepository {
     public int deleteAll() {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .deleteFrom(Meeting.table())
+                .deleteFrom(Meetings.MEETINGS)
                 .execute();
         }
     }
@@ -67,19 +70,19 @@ public class MeetingRepository {
     public List<Meeting> fetch(String name) {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .select(Meeting.asterisk())
-                .from(Meeting.table())
-                .where(Meeting.nameField().eq(name))
+                .select(DSL.asterisk())
+                .from(Meetings.MEETINGS)
+                .where(Meetings.MEETINGS.NAME.eq(name))
                 .fetchInto(Meeting.class);
         }
     }
 
     @SneakyThrows
-    public int delete(long id) {
+    public int delete(int id) {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .deleteFrom(Meeting.table())
-                .where(Meeting.idField().eq(id))
+                .deleteFrom(Meetings.MEETINGS)
+                .where(Meetings.MEETINGS.ID.eq(id))
                 .execute();
         }
     }
@@ -88,8 +91,8 @@ public class MeetingRepository {
     public List<Meeting> fetchAll() {
         try (Connection conn = Database.getConnection()) {
             return DSL.using(conn, SQLDialect.POSTGRES)
-                .select(Meeting.asterisk())
-                .from(Meeting.table())
+                .select(DSL.asterisk())
+                .from(Meetings.MEETINGS)
                 .fetchInto(Meeting.class);
         }
     }
