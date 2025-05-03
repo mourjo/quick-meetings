@@ -68,6 +68,11 @@
       <scope>test</scope>
       <version>1.9.2</version>
     </dependency>
+    <dependency>
+      <artifactId>assertj-core</artifactId>
+      <groupId>org.assertj</groupId>
+      <version>3.27.3</version>
+    </dependency>
   </dependencies>
   <description>Property Based Testing: A Meetings Examples</description>
   <developers>
