@@ -1,140 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns="http://maven.apache.org/POM/4.0.0"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <artifactId>quick-meetings</artifactId>
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <artifactId>quickmeetings</artifactId>
   <build>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <configuration>
-            <!-- See https://maven.apache.org/surefire/maven-surefire-plugin/test-mojo.html-->
-            <failIfNoTests>true</failIfNoTests>
-          </configuration>
-          <groupId>org.apache.maven.plugins</groupId>
-          <version>3.1.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-assembly-plugin</artifactId>
-          <configuration>
-            <archive>
-              <manifest>
-                <mainClass>me.mourjo.Application</mainClass>
-              </manifest>
-            </archive>
-            <descriptorRefs>
-              <descriptorRef>jar-with-dependencies</descriptorRef>
-            </descriptorRefs>
-          </configuration> <!-- Use the latest version -->
-          <executions>
-            <execution>
-              <goals>
-                <goal>single</goal>
-              </goals> <!-- this is used for inheritance merges -->
-              <id>make-assembly</id> <!-- bind to the packaging phase -->
-              <phase>package</phase>
-            </execution>
-          </executions>
-          <version>3.7.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <configuration>
-            <annotationProcessorPaths>
-              <path>
-                <artifactId>lombok</artifactId>
-                <groupId>org.projectlombok</groupId>
-                <version>${lombok.version}</version>
-              </path>
-            </annotationProcessorPaths>
-          </configuration>
-          <groupId>org.apache.maven.plugins</groupId>
-          <version>3.14.0</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
-
     <plugins>
       <plugin>
-        <artifactId>jooq-codegen-maven</artifactId>
+        <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <generator>
-            <database>
-              <excludes></excludes>
-              <includes>.*</includes>
-              <inputSchema>public</inputSchema>
-              <name>org.jooq.meta.postgres.PostgresDatabase</name>
-            </database>
-            <target>
-              <directory>target/generated-sources/jooq</directory>
-              <packageName>me.mourjo.entities.generated</packageName>
-            </target>
-          </generator>
-          <jdbc>
-            <driver>org.postgresql.Driver</driver>
-            <password>quick_meetings</password>
-            <url>jdbc:postgresql://localhost:5432/quick_meetings_test_db</url>
-            <user>justin</user>
-          </jdbc>
-
+          <annotationProcessorPaths>
+            <path>
+              <artifactId>lombok</artifactId>
+              <groupId>org.projectlombok</groupId>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-            <id>jooq-codegen</id>
-            <phase>generate-sources</phase>
-          </execution>
-        </executions>
-        <groupId>org.jooq</groupId>
-        <version>3.19.10</version>
+        <groupId>org.apache.maven.plugins</groupId>
+      </plugin>
+      <plugin>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <artifactId>lombok</artifactId>
+              <groupId>org.projectlombok</groupId>
+            </exclude>
+          </excludes>
+        </configuration>
+        <groupId>org.springframework.boot</groupId>
       </plugin>
     </plugins>
   </build>
   <dependencies>
-
     <dependency>
-      <artifactId>jakarta.persistence-api</artifactId>
-      <groupId>jakarta.persistence</groupId>
-      <version>3.2.0</version>
+      <artifactId>spring-boot-starter-data-jdbc</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <groupId>org.springframework.boot</groupId>
     </dependency>
 
     <dependency>
-      <artifactId>lombok</artifactId>
-      <groupId>org.projectlombok</groupId>
-      <scope>provided</scope>
-      <version>${lombok.version}</version>
-    </dependency>
-    <dependency>
-      <artifactId>jooq</artifactId>
-      <groupId>org.jooq</groupId>
-      <version>3.19.10</version>
-    </dependency>
-    <dependency>
-      <artifactId>jooq-meta</artifactId>
-      <groupId>org.jooq</groupId>
-      <version>3.19.10</version>
-    </dependency>
-    <dependency>
-      <artifactId>jooq-codegen</artifactId>
-      <groupId>org.jooq</groupId>
-      <version>3.19.10</version>
+      <artifactId>spring-boot-devtools</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <optional>true</optional>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <artifactId>postgresql</artifactId>
       <groupId>org.postgresql</groupId>
-      <version>42.6.1</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
-      <artifactId>slf4j-api</artifactId>
-      <groupId>org.slf4j</groupId>
-      <version>2.0.13</version>
+      <artifactId>lombok</artifactId>
+      <groupId>org.projectlombok</groupId>
+      <optional>true</optional>
     </dependency>
     <dependency>
-      <artifactId>logback-classic</artifactId>
-      <groupId>ch.qos.logback</groupId>
-      <version>1.5.6</version>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <artifactId>jqwik</artifactId>
@@ -142,53 +68,34 @@
       <scope>test</scope>
       <version>1.9.2</version>
     </dependency>
-    <dependency>
-      <artifactId>junit-jupiter</artifactId>
-      <groupId>org.junit.jupiter</groupId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <artifactId>junit-platform-launcher</artifactId>
-      <groupId>org.junit.platform</groupId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <groupId>org.junit.jupiter</groupId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <artifactId>jackson-datatype-jsr310</artifactId>
-      <groupId>com.fasterxml.jackson.datatype</groupId>
-      <version>2.17.2</version>
-    </dependency>
   </dependencies>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <artifactId>junit-bom</artifactId>
-        <groupId>org.junit</groupId>
-        <scope>import</scope>
-        <type>pom</type>
-        <version>5.10.3</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+  <description>Property Based Testing: A Meetings Examples</description>
+  <developers>
+    <developer/>
+  </developers>
   <groupId>me.mourjo</groupId>
+  <licenses>
+    <license/>
+  </licenses>
   <modelVersion>4.0.0</modelVersion>
-  <name>quick-meetings</name>
-  <packaging>jar</packaging>
-
-
+  <name>quickmeetings</name>
+  <parent>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <relativePath/>
+    <version>3.4.5</version> <!-- lookup parent from repository -->
+  </parent>
   <properties>
-    <lombok.version>1.18.34</lombok.version>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <java.version>21</java.version>
   </properties>
+  <scm>
+    <connection/>
+    <developerConnection/>
+    <tag/>
+    <url/>
+  </scm>
+  <url/>
 
+  <version>0.0.1-SNAPSHOT</version>
 
-  <url>http://maven.apache.org</url>
-
-  <version>1.0-SNAPSHOT</version>
 </project>
