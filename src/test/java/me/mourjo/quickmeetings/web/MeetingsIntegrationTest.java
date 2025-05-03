@@ -3,23 +3,23 @@ package me.mourjo.quickmeetings.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.Spliterator;
-import java.util.Spliterators;
+import com.jayway.jsonpath.JsonPath;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
-import java.util.stream.StreamSupport;
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import me.mourjo.quickmeetings.utils.RequestUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
@@ -49,48 +49,34 @@ class MeetingsIntegrationTest {
     @Test
     void createMeetingTest() {
         var user = userService.createUser("justin");
-        String meetingName = "J bang %s".formatted(UUID.randomUUID());
-        var req = MockMvcRequestBuilders.post("/meeting")
-            .content("""
-                {
-                  "userId": %s,
-                  "name": "%s",
-                  "duration": {
-                    "from": {
-                      "date": "2025-03-30",
-                      "time": "02:30:00"
-                    },
-                    "to": {
-                      "date": "2025-03-30",
-                      "time": "03:00:00"
-                    }
-                  },
-                  "timezone": "Asia/Kolkata"
-                }
-                """.formatted(user.id(), meetingName))
-            .contentType(MediaType.APPLICATION_JSON);
+        String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
+        var req = RequestUtils.meetingRequest(
+            user.id(),
+            meetingName,
+            "2025-03-30",
+            "14:30:00",
+            "2025-03-30",
+            "15:00:00",
+            "Asia/Kolkata"
+        );
 
-        mockMvc.perform(req)
-            .andExpect(status().is2xxSuccessful());
+        var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
+        var meetingId = Long.parseLong(
+            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString());
 
-        boolean found = false;
-        for (var meeting : meetingRepository.findAll()) {
-            if (meeting.name().equals(meetingName)) {
-                found = true;
-                var it = userMeetingRepository.findAll().iterator();
-                var meetings = StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED), false
-                    ).filter(m -> meeting.id() == m.meetingId())
-                    .toList();
+        var dbMeeting = meetingRepository.findById(meetingId).get();
+        var userMeetings = userMeetingRepository.findAllByMeetingId(dbMeeting.id());
 
-                assertThat(meetings.size()).isEqualTo(1);
-                assertThat(meetings.get(0).userId()).isEqualTo(user.id());
-            }
-        }
+        assertThat(userMeetings.size()).isEqualTo(1);
+        assertThat(userMeetings.get(0).userId()).isEqualTo(user.id());
 
-        assertThat(found).isTrue();
+        var startingLocalTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
+        var startingTime = OffsetDateTime.of(startingLocalTime, ZoneOffset.ofHoursMinutes(5, 30));
+
+        assertThat(dbMeeting.startAt()).isEqualTo(startingTime);
+        assertThat(dbMeeting.endAt()).isEqualTo(startingTime.plusMinutes(30));
 
     }
 
-
+    
 }
