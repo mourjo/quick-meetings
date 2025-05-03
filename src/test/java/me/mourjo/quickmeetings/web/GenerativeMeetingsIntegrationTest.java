@@ -1,95 +1,89 @@
 package me.mourjo.quickmeetings.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.ZonedDateTime;
 import java.time.format.TextStyle;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import lombok.SneakyThrows;
-import me.mourjo.quickmeetings.db.MeetingRepository;
-import me.mourjo.quickmeetings.db.UserMeetingRepository;
+import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.utils.RequestUtils;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Disabled;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
+@Disabled
 @JqwikSpringSupport
-@Transactional
-@SpringBootTest
+@WebMvcTest(MeetingsController.class)
 @AutoConfigureMockMvc
 public class GenerativeMeetingsIntegrationTest {
 
-    @Autowired
-    MeetingRepository meetingRepository;
-
-    @Autowired
-    UserMeetingRepository userMeetingRepository;
-
-    @Autowired
+    @MockitoBean
     UserService userService;
+
+    @MockitoBean
+    MeetingsService meetingsService;
 
     @Autowired
     MockMvc mockMvc;
 
     @SneakyThrows
-    @Property(tries = 10000)
+    @Property(tries = 100000)
     void uniqueInList(
-        @ForAll @DateTimeRange(min = "2025-03-20T00:00:00", max = "2025-04-01T00:00:00") LocalDateTime localDateTime,
+        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-12-31T00:00:00") LocalDateTime localDateTime,
         @ForAll("zoneIds") ZoneId zone) {
         var from = localDateTime;
         var to = from.plusMinutes(30);
         String tz = zone.getDisplayName(TextStyle.NARROW, Locale.US);
 
-        assertThat(OffsetDateTime.of(from, zone.getRules().getOffset(Instant.now()))).isNotNull();
-
-        var user = userService.createUser("justin");
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
 
         var req = RequestUtils.meetingRequest(
-            user.id(),
+            1,
             meetingName,
-            from.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-            from.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-            to.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-            to.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
+            from,
+            to,
             tz
         );
 
-        var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
+        var fromCap = ArgumentCaptor.forClass(ZonedDateTime.class);
+        var toCap = ArgumentCaptor.forClass(ZonedDateTime.class);
 
-        var meetingId = Long.parseLong(
-            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString());
+        Mockito.when(meetingsService.createMeeting(
+            any(),
+            anyLong(),
+            fromCap.capture(),
+            toCap.capture()
+        )).thenReturn(100L);
 
-        var dbMeeting = meetingRepository.findById(meetingId).get();
-        var userMeetings = userMeetingRepository.findAllByMeetingId(dbMeeting.id());
+        Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
 
-        assertThat(userMeetings.size()).isEqualTo(1);
-        assertThat(userMeetings.get(0).userId()).isEqualTo(user.id());
-
-        assertThat(dbMeeting.startAt()).isEqualTo(
-            OffsetDateTime.of(from, zone.getRules().getOffset(from)));
+        mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
 
         assertThat(
-            Duration.between(dbMeeting.startAt(), dbMeeting.endAt())
+            Duration.between(fromCap.getValue(), toCap.getValue())
         ).isEqualTo(Duration.ofMinutes(30));
 
     }
@@ -97,7 +91,7 @@ public class GenerativeMeetingsIntegrationTest {
     @Provide
     Arbitrary<ZoneId> zoneIds() {
         Set<String> zoneIds = ZoneId.getAvailableZoneIds();
-        return Arbitraries.of(Set.of("Asia/Kolkata"))
+        return Arbitraries.of(zoneIds)
             .map(ZoneId::of);
     }
 

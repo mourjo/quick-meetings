@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.UUID;
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.MeetingRepository;
@@ -48,16 +48,19 @@ class MeetingsIntegrationTest {
     @SneakyThrows
     @Test
     void createMeetingTest() {
+        var startingLocalTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
+        var zone = "Asia/Kolkata";
+        var offset = ZoneId.of(zone).getRules().getOffset(startingLocalTime);
+        var startingZonedTime = OffsetDateTime.of(startingLocalTime, offset);
+
         var user = userService.createUser("justin");
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
         var req = RequestUtils.meetingRequest(
             user.id(),
             meetingName,
-            "2025-03-30",
-            "14:30:00",
-            "2025-03-30",
-            "15:00:00",
-            "Asia/Kolkata"
+            startingLocalTime,
+            startingLocalTime.plusMinutes(30),
+            zone
         );
 
         var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
@@ -70,13 +73,10 @@ class MeetingsIntegrationTest {
         assertThat(userMeetings.size()).isEqualTo(1);
         assertThat(userMeetings.get(0).userId()).isEqualTo(user.id());
 
-        var startingLocalTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
-        var startingTime = OffsetDateTime.of(startingLocalTime, ZoneOffset.ofHoursMinutes(5, 30));
-
-        assertThat(dbMeeting.startAt()).isEqualTo(startingTime);
-        assertThat(dbMeeting.endAt()).isEqualTo(startingTime.plusMinutes(30));
+        assertThat(dbMeeting.startAt()).isEqualTo(startingZonedTime);
+        assertThat(dbMeeting.endAt()).isEqualTo(startingZonedTime.plusMinutes(30));
 
     }
 
-    
+
 }
