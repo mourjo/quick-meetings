@@ -45,7 +45,6 @@
       <artifactId>spring-boot-devtools</artifactId>
       <groupId>org.springframework.boot</groupId>
       <optional>true</optional>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <artifactId>postgresql</artifactId>
@@ -72,6 +71,11 @@
       <artifactId>assertj-core</artifactId>
       <groupId>org.assertj</groupId>
       <version>3.27.3</version>
+    </dependency>
+    <dependency>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <groupId>org.springdoc</groupId>
+      <version>2.8.6</version>
     </dependency>
   </dependencies>
   <description>Property Based Testing: A Meetings Examples</description>

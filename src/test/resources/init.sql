@@ -17,6 +17,17 @@ CREATE TABLE meetings (
 );
 
 
+CREATE table users(
+id serial PRIMARY KEY,
+   name TEXT
+);
+
+CREATE table user_meetings(
+id serial PRIMARY KEY,
+meeting_id int not null references meetings(id),
+user_id int not null references users(id)
+);
+
 
 \c quick_meetings_test_db;
 
