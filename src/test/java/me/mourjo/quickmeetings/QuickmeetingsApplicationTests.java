@@ -29,9 +29,10 @@ class QuickmeetingsApplicationTests {
                 found = true;
 
                 Assertions.assertEquals(meeting.name(), dbMeeting.name());
-                Assertions.assertEquals(meeting.startAt().toInstant(),
-                    dbMeeting.startAt().toInstant());
-                Assertions.assertEquals(meeting.endAt().toInstant(), dbMeeting.endAt().toInstant());
+                Assertions.assertEquals(meeting.startAt().toEpochSecond(),
+                    dbMeeting.startAt().toEpochSecond());
+                Assertions.assertEquals(meeting.endAt().toEpochSecond(),
+                    dbMeeting.endAt().toEpochSecond());
 
                 Assertions.assertTrue(OffsetDateTime.now().isAfter(dbMeeting.createdAt()));
                 Assertions.assertTrue(OffsetDateTime.now().isAfter(dbMeeting.updatedAt()));
@@ -44,8 +45,6 @@ class QuickmeetingsApplicationTests {
         repository.save(Meeting.buildFrom(dbMeeting).name("New Name").build());
 
         Assertions.assertEquals("New Name", repository.findById(m.id()).get().name());
-
-
     }
 
 }
