@@ -187,16 +187,6 @@ class MeetingCreationTests {
             fiveMinsLater.plus(Duration.ofMinutes(5))
         );
         assertThat(overlappingMeetings).hasSize(1);
-
-        // -----------------------------------------------------------------------------------
-
-//        var earlier = startTime.minusDays(10);
-//        overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
-//            debbie.id(),
-//            earlier,
-//            earlier.plus(Duration.ofDays(200))
-//        );
-//        assertThat(overlappingMeetings).hasSize(1);
     }
 
 
