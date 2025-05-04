@@ -33,10 +33,7 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
         FROM
          meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
          WHERE um.user_id= :userId
-         AND (
-               (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
-            OR (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
-            )
+         AND (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :from)
         """)
     List<Meeting> findOverlappingMeetingsForUser(
         @Param("userId") long userId,
