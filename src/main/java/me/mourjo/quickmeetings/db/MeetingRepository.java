@@ -10,32 +10,32 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
 
     @Query("""
          SELECT
-            meeting.id,
-            meeting.name,
-            meeting.from_ts,
-            meeting.to_ts,
-            meeting.created_ts,
-            meeting.updated_ts
+            existing_meeting.id,
+            existing_meeting.name,
+            existing_meeting.from_ts,
+            existing_meeting.to_ts,
+            existing_meeting.created_ts,
+            existing_meeting.updated_ts
         FROM
-         meetings meeting JOIN user_meetings um ON meeting.id = um.meeting_id
+         meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
          WHERE um.user_id= :userId
         """)
     List<Meeting> findAllMeetingsForUser(@Param("userId") long userId);
 
     @Query("""
          SELECT
-            meeting.id,
-            meeting.name,
-            meeting.from_ts,
-            meeting.to_ts,
-            meeting.created_ts,
-            meeting.updated_ts
+            existing_meeting.id,
+            existing_meeting.name,
+            existing_meeting.from_ts,
+            existing_meeting.to_ts,
+            existing_meeting.created_ts,
+            existing_meeting.updated_ts
         FROM
-         meetings meeting JOIN user_meetings um ON meeting.id = um.meeting_id
+         meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
          WHERE um.user_id= :userId
          AND (
-               (meeting.from_ts <= :from AND meeting.to_ts >= :from)
-            OR (meeting.from_ts <= :to AND meeting.to_ts >= :to)
+               (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
+            OR (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
             )
         """)
     List<Meeting> findOverlappingMeetingsForUser(
