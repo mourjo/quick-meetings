@@ -18,23 +18,13 @@ public record Meeting(
 
 ) {
 
-    public Meeting(long id, String name, OffsetDateTime startAt, OffsetDateTime endAt,
-        OffsetDateTime createdAt, OffsetDateTime updatedAt) {
-        this.id = id;
-        this.name = name;
-        this.startAt = startAt;
-        this.endAt = endAt;
+    public Meeting {
         var now = OffsetDateTime.now();
-
-        if (createdAt != null) {
-            this.createdAt = createdAt;
-        } else {
-            this.createdAt = now;
+        if (createdAt == null) {
+            createdAt = now;
         }
-        if (updatedAt != null) {
-            this.updatedAt = updatedAt;
-        } else {
-            this.updatedAt = now;
+        if (updatedAt == null) {
+            updatedAt = now;
         }
     }
 
