@@ -14,6 +14,7 @@ import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
@@ -76,7 +77,7 @@ class MeetingCreationTests {
         var justin = userService.createUser("justin");
         var peter = userService.createUser("peter");
 
-        createMeeting(
+        var justinMeeting = createMeeting(
             justin,
             "Justin's meeting",
             startTime,
@@ -84,7 +85,7 @@ class MeetingCreationTests {
             zone
         );
 
-        createMeeting(
+        var debbieMeeting = createMeeting(
             debbie,
             "Debbie's meeting",
             startTime,
@@ -94,11 +95,12 @@ class MeetingCreationTests {
 
         var debbieMeetings = meetingRepository.findAllMeetingsForUser(debbie.id());
         assertThat(debbieMeetings.size()).isEqualTo(1);
-        assertThat(debbieMeetings.get(0).name()).isEqualTo("Debbie's meeting");
+        verifyMeetingName(debbieMeeting.id(), "Debbie's meeting");
+        verifyRole(debbieMeeting.id(), debbie.id(), RoleOfUser.OWNER);
 
         var justinMeetings = meetingRepository.findAllMeetingsForUser(justin.id());
         assertThat(justinMeetings.size()).isEqualTo(1);
-        assertThat(justinMeetings.get(0).name()).isEqualTo("Justin's meeting");
+        verifyMeetingName(justinMeeting.id(), "Justin's meeting");
 
         var peterMeetings = meetingRepository.findAllMeetingsForUser(peter.id());
         assertThat(peterMeetings).isEmpty();
@@ -189,9 +191,24 @@ class MeetingCreationTests {
         assertThat(overlappingMeetings).hasSize(1);
     }
 
+    private void verifyRole(long meetingId, long userId, RoleOfUser role) {
+        var meetings = userMeetingRepository.findAllByMeetingId(meetingId);
+        assertThat(meetings.size()).isEqualTo(1);
+        assertThat(meetings.get(0).userRole()).isEqualTo(RoleOfUser.OWNER);
+        assertThat(meetings.get(0).userId()).isEqualTo(userId);
+    }
+
+    private void verifyMeetingName(long meetingId, String name) {
+        var maybeMeeting = meetingRepository.findById(meetingId);
+        assertThat(maybeMeeting).isPresent();
+
+        var meeting = maybeMeeting.get();
+        assertThat(meeting.name()).isEqualTo(name);
+    }
 
     @SneakyThrows
-    Meeting createMeeting(User user, String meetingName, TemporalAccessor from, TemporalAccessor to,
+    private Meeting createMeeting(User user, String meetingName, TemporalAccessor from,
+        TemporalAccessor to,
         String zone) {
         var req = RequestUtils.meetingRequest(
             user.id(),
@@ -210,7 +227,7 @@ class MeetingCreationTests {
     }
 
     @SneakyThrows
-    Meeting createMeeting(TemporalAccessor from, TemporalAccessor to, String zone) {
+    private Meeting createMeeting(TemporalAccessor from, TemporalAccessor to, String zone) {
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
         var user = userService.createUser("random-" + UUID.randomUUID());
 
