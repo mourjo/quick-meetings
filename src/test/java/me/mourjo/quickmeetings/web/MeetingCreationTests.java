@@ -6,7 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.TemporalAccessor;
 import java.util.UUID;
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.Meeting;
@@ -112,10 +114,14 @@ class MeetingCreationTests {
 
     @Test
     void overlappingMeetingTest() {
-        var startTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
+        var startTime = OffsetDateTime.of(
+            LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0),
+            ZoneOffset.ofHoursMinutes(5, 30)
+        );
         var zone = "Asia/Kolkata";
         var meetingDuration = Duration.ofMinutes(30);
         var debbie = userService.createUser("debbie");
+
         createMeeting(
             debbie,
             "Debbie's meeting",
@@ -126,8 +132,8 @@ class MeetingCreationTests {
 
         var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            startTime.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            startTime.plus(meetingDuration).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            startTime,
+            startTime.plus(meetingDuration)
         );
 
         assertThat(overlappingMeetings).hasSize(1);
@@ -135,32 +141,32 @@ class MeetingCreationTests {
         var fifteenMinsLater = startTime.plusMinutes(15);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            fifteenMinsLater.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            fifteenMinsLater.plus(meetingDuration).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            fifteenMinsLater,
+            fifteenMinsLater.plus(meetingDuration)
         );
         assertThat(overlappingMeetings).hasSize(1);
 
         var fifteenMinsEarlier = startTime.minusMinutes(15);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            fifteenMinsEarlier.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            fifteenMinsEarlier.plus(meetingDuration).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            fifteenMinsEarlier,
+            fifteenMinsEarlier.plus(meetingDuration)
         );
         assertThat(overlappingMeetings).hasSize(1);
 
         var muchLater = startTime.plusHours(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            muchLater.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            muchLater.plus(meetingDuration).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            muchLater,
+            muchLater.plus(meetingDuration)
         );
         assertThat(overlappingMeetings).isEmpty();
 
         var muchEarlier = startTime.minusHours(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            muchEarlier.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            muchEarlier.plus(meetingDuration).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            muchEarlier,
+            muchEarlier.plus(meetingDuration)
         );
         assertThat(overlappingMeetings).isEmpty();
 
@@ -168,23 +174,23 @@ class MeetingCreationTests {
 
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            later.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            later.plus(Duration.ofMinutes(5)).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            later,
+            later.plus(Duration.ofMinutes(5))
         );
         assertThat(overlappingMeetings).hasSize(1);
 
         var earlier = startTime.minusDays(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            earlier.atOffset(ZoneOffset.ofHoursMinutes(5, 30)),
-            earlier.plus(Duration.ofDays(200)).atOffset(ZoneOffset.ofHoursMinutes(5, 30))
+            earlier,
+            earlier.plus(Duration.ofDays(200))
         );
         assertThat(overlappingMeetings).hasSize(1);
     }
 
 
     @SneakyThrows
-    Meeting createMeeting(User user, String meetingName, LocalDateTime from, LocalDateTime to,
+    Meeting createMeeting(User user, String meetingName, TemporalAccessor from, TemporalAccessor to,
         String zone) {
         var req = RequestUtils.meetingRequest(
             user.id(),
@@ -203,7 +209,7 @@ class MeetingCreationTests {
     }
 
     @SneakyThrows
-    Meeting createMeeting(LocalDateTime from, LocalDateTime to, String zone) {
+    Meeting createMeeting(TemporalAccessor from, TemporalAccessor to, String zone) {
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
         var user = userService.createUser("random-" + UUID.randomUUID());
 
