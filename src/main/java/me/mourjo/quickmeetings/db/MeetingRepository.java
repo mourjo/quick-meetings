@@ -18,7 +18,7 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
             existing_meeting.updated_ts
         FROM
          meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
-         WHERE um.user_id= :userId
+         WHERE um.user_id = :userId AND um.role_of_user IN ('OWNER', 'ACCEPTED')
         """)
     List<Meeting> findAllMeetingsForUser(@Param("userId") long userId);
 
@@ -31,12 +31,14 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
             existing_meeting.created_ts,
             existing_meeting.updated_ts
         FROM
-         meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
-         WHERE um.user_id= :userId
-         AND (
-               (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
-            OR (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
-            )
+            meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
+        WHERE um.user_id = :userId
+            AND um.role_of_user IN ('OWNER', 'ACCEPTED')
+            AND (
+                  (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
+                  OR
+                  (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
+               )
         """)
     List<Meeting> findOverlappingMeetingsForUser(
         @Param("userId") long userId,
