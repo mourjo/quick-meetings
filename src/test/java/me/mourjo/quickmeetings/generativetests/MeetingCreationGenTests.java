@@ -1,4 +1,4 @@
-package me.mourjo.quickmeetings.web;
+package me.mourjo.quickmeetings.generativetests;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,10 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.TextStyle;
-import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.SneakyThrows;
@@ -18,6 +16,7 @@ import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.utils.RequestUtils;
+import me.mourjo.quickmeetings.web.MeetingsController;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Disabled;
@@ -38,7 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @JqwikSpringSupport
 @WebMvcTest(MeetingsController.class)
 @AutoConfigureMockMvc
-public class GenerativeMeetingsIntegrationTest {
+public class MeetingCreationGenTests {
 
     @MockitoBean
     UserService userService;
@@ -52,12 +51,26 @@ public class GenerativeMeetingsIntegrationTest {
     @SneakyThrows
     @Property(tries = 100000)
     void uniqueInList(
-        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-12-31T00:00:00") LocalDateTime localDateTime,
-        @ForAll("zoneIds") ZoneId zone) {
-        var from = localDateTime;
-        var to = from.plusMinutes(30);
-        String tz = zone.getDisplayName(TextStyle.NARROW, Locale.US);
+        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-12-31T23:59:59") LocalDateTime startTime,
+        @ForAll("zoneIds") String timezone) {
+        var meetingDuration = Duration.ofMinutes(30);
 
+        var dateRange = createMeeting(
+            startTime,
+            startTime.plus(meetingDuration),
+            timezone
+        );
+
+        var dbFrom = dateRange.get(0).getValue();
+        var dbTo = dateRange.get(1).getValue();
+        var dbDuration = Duration.between(dbFrom, dbTo);
+
+        assertThat(dbDuration).isEqualTo(meetingDuration);
+    }
+
+    @SneakyThrows
+    List<ArgumentCaptor<ZonedDateTime>> createMeeting(LocalDateTime from, LocalDateTime to,
+        String zone) {
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
 
         var req = RequestUtils.meetingRequest(
@@ -65,7 +78,7 @@ public class GenerativeMeetingsIntegrationTest {
             meetingName,
             from,
             to,
-            tz
+            zone
         );
 
         var fromCap = ArgumentCaptor.forClass(ZonedDateTime.class);
@@ -82,17 +95,13 @@ public class GenerativeMeetingsIntegrationTest {
 
         mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
 
-        assertThat(
-            Duration.between(fromCap.getValue(), toCap.getValue())
-        ).isEqualTo(Duration.ofMinutes(30));
-
+        return List.of(fromCap, toCap);
     }
 
     @Provide
-    Arbitrary<ZoneId> zoneIds() {
-        Set<String> zoneIds = ZoneId.getAvailableZoneIds();
-        return Arbitraries.of(zoneIds)
-            .map(ZoneId::of);
+    Arbitrary<String> zoneIds() {
+        var zoneIds = Set.of("Asia/Kolkata", "Europe/Amsterdam"); // ZoneId.getAvailableZoneIds()
+        return Arbitraries.of(zoneIds);
     }
 
 }

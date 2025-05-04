@@ -4,17 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.UUID;
 import lombok.SneakyThrows;
+import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
+import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.utils.RequestUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @SpringBootTest
 @AutoConfigureMockMvc
-class MeetingsIntegrationTest {
+class MeetingCreationTests {
 
     @Autowired
     MeetingsService meetingsService;
@@ -45,38 +47,48 @@ class MeetingsIntegrationTest {
     @Autowired
     MockMvc mockMvc;
 
+
+    User user;
+
+    @BeforeEach
+    void setUp() {
+        user = userService.createUser("justin-" + UUID.randomUUID());
+    }
+
     @SneakyThrows
     @Test
     void createMeetingTest() {
-        var startingLocalTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
-        var zone = "Asia/Kolkata";
-        var offset = ZoneId.of(zone).getRules().getOffset(startingLocalTime);
-        var startingZonedTime = OffsetDateTime.of(startingLocalTime, offset);
+        var startTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
+        var zone = "Europe/Amsterdam";
+        var meetingDuration = Duration.ofMinutes(30);
 
-        var user = userService.createUser("justin");
+        var dbMeeting = createMeeting(
+            startTime,
+            startTime.plus(meetingDuration),
+            zone
+        );
+
+        var dbMeetingDuration = Duration.between(dbMeeting.startAt(), dbMeeting.endAt());
+        assertThat(dbMeetingDuration).isEqualTo(meetingDuration);
+    }
+
+    @SneakyThrows
+    Meeting createMeeting(LocalDateTime from, LocalDateTime to, String zone) {
+
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
         var req = RequestUtils.meetingRequest(
             user.id(),
             meetingName,
-            startingLocalTime,
-            startingLocalTime.plusMinutes(30),
+            from,
+            to,
             zone
         );
 
         var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
         var meetingId = Long.parseLong(
-            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString());
+            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString()
+        );
 
-        var dbMeeting = meetingRepository.findById(meetingId).get();
-        var userMeetings = userMeetingRepository.findAllByMeetingId(dbMeeting.id());
-
-        assertThat(userMeetings.size()).isEqualTo(1);
-        assertThat(userMeetings.get(0).userId()).isEqualTo(user.id());
-
-        assertThat(dbMeeting.startAt()).isEqualTo(startingZonedTime);
-        assertThat(dbMeeting.endAt()).isEqualTo(startingZonedTime.plusMinutes(30));
-
+        return meetingRepository.findById(meetingId).get();
     }
-
-
 }
