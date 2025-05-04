@@ -24,8 +24,8 @@ id serial PRIMARY KEY,
 
 CREATE table user_meetings(
 id serial PRIMARY KEY,
-meeting_id int not null references meetings(id),
-user_id int not null references users(id)
+meeting_id int not null references meetings(id) ON DELETE CASCADE,
+user_id int not null references users(id) ON DELETE CASCADE
 );
 
 
