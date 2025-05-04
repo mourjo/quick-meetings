@@ -1,4 +1,7 @@
 package me.mourjo.quickmeetings.web.dto;
 
-public class MeetingInviteRequest {
+import java.util.List;
+
+public record MeetingInviteRequest(long meetingId, List<Long> invitees) {
+
 }

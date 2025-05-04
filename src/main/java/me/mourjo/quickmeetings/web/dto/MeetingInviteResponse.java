@@ -1,4 +1,5 @@
 package me.mourjo.quickmeetings.web.dto;
 
-public class MeetingInviteResponse {
+public record MeetingInviteResponse(String message) {
+
 }

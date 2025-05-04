@@ -7,6 +7,8 @@ import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.web.dto.MeetingCreationRequest;
 import me.mourjo.quickmeetings.web.dto.MeetingCreationResponse;
+import me.mourjo.quickmeetings.web.dto.MeetingInviteRequest;
+import me.mourjo.quickmeetings.web.dto.MeetingInviteResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +25,18 @@ public class MeetingsController {
         this.userService = userService;
     }
 
+    @PostMapping("/meeting/invite")
+    ResponseEntity<MeetingInviteResponse> createMeeting(MeetingInviteRequest request) {
+        var usersWithConflicts = meetingsService.invite(request.meetingId(), request.invitees())
+            .stream().map(id -> Long.toString(id)).toList();
+        if (usersWithConflicts.isEmpty()) {
+            return ResponseEntity.ok(new MeetingInviteResponse("Invited successfully"));
+        }
+        return ResponseEntity.status(400).body(new MeetingInviteResponse(
+            "Users have conflicts: %s".formatted(
+                String.join(",", usersWithConflicts)
+            )));
+    }
 
     @PostMapping("/meeting")
     ResponseEntity<MeetingCreationResponse> createMeeting(

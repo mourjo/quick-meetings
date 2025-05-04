@@ -93,16 +93,16 @@ class MeetingCreationTests {
             zone
         );
 
-        var debbieMeetings = meetingRepository.findAllMeetingsForUser(debbie.id());
+        var debbieMeetings = meetingRepository.findAllConfirmedMeetingsForUser(debbie.id());
         assertThat(debbieMeetings.size()).isEqualTo(1);
         verifyMeetingName(debbieMeeting.id(), "Debbie's meeting");
         verifyRole(debbieMeeting.id(), debbie.id(), RoleOfUser.OWNER);
 
-        var justinMeetings = meetingRepository.findAllMeetingsForUser(justin.id());
+        var justinMeetings = meetingRepository.findAllConfirmedMeetingsForUser(justin.id());
         assertThat(justinMeetings.size()).isEqualTo(1);
         verifyMeetingName(justinMeeting.id(), "Justin's meeting");
 
-        var peterMeetings = meetingRepository.findAllMeetingsForUser(peter.id());
+        var peterMeetings = meetingRepository.findAllConfirmedMeetingsForUser(peter.id());
         assertThat(peterMeetings).isEmpty();
     }
 

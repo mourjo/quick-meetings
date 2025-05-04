@@ -5,5 +5,10 @@ import org.springframework.data.repository.CrudRepository;
 
 public interface UserMeetingRepository extends CrudRepository<UserMeeting, Long> {
 
-    List<UserMeeting> findAllByMeetingId(long meetingId);
+    List<UserMeeting> findByMeetingIdIn(List<Long> meetingIds);
+
+    default List<UserMeeting> findAllByMeetingId(Long meetingId) {
+        return findByMeetingIdIn(List.of(meetingId));
+    }
+
 }
