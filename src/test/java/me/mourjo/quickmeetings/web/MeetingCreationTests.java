@@ -16,7 +16,6 @@ import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.utils.RequestUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -47,14 +46,6 @@ class MeetingCreationTests {
     @Autowired
     MockMvc mockMvc;
 
-
-    User user;
-
-    @BeforeEach
-    void setUp() {
-        user = userService.createUser("justin-" + UUID.randomUUID());
-    }
-
     @SneakyThrows
     @Test
     void createMeetingTest() {
@@ -73,9 +64,47 @@ class MeetingCreationTests {
     }
 
     @SneakyThrows
-    Meeting createMeeting(LocalDateTime from, LocalDateTime to, String zone) {
+    @Test
+    void userMeetingTest() {
+        var startTime = LocalDateTime.of(2025, 3, 30, 14, 30, 0, 0);
+        var zone = "Europe/Amsterdam";
+        var meetingDuration = Duration.ofMinutes(30);
+        var debbie = userService.createUser("debbie");
+        var justin = userService.createUser("justin");
+        var peter = userService.createUser("peter");
 
-        String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
+        createMeeting(
+            justin,
+            "Justin's meeting",
+            startTime,
+            startTime.plus(meetingDuration),
+            zone
+        );
+
+        createMeeting(
+            debbie,
+            "Debbie's meeting",
+            startTime,
+            startTime.plus(meetingDuration),
+            zone
+        );
+
+        var debbieMeetings = meetingRepository.findAllMeetingsForUser(debbie.id());
+        assertThat(debbieMeetings.size()).isEqualTo(1);
+        assertThat(debbieMeetings.get(0).name()).isEqualTo("Debbie's meeting");
+
+        var justinMeetings = meetingRepository.findAllMeetingsForUser(justin.id());
+        assertThat(justinMeetings.size()).isEqualTo(1);
+        assertThat(justinMeetings.get(0).name()).isEqualTo("Justin's meeting");
+
+        var peterMeetings = meetingRepository.findAllMeetingsForUser(peter.id());
+        assertThat(peterMeetings).isEmpty();
+    }
+
+
+    @SneakyThrows
+    Meeting createMeeting(User user, String meetingName, LocalDateTime from, LocalDateTime to,
+        String zone) {
         var req = RequestUtils.meetingRequest(
             user.id(),
             meetingName,
@@ -90,5 +119,13 @@ class MeetingCreationTests {
         );
 
         return meetingRepository.findById(meetingId).get();
+    }
+
+    @SneakyThrows
+    Meeting createMeeting(LocalDateTime from, LocalDateTime to, String zone) {
+        String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
+        var user = userService.createUser("random-" + UUID.randomUUID());
+
+        return createMeeting(user, meetingName, from, to, zone);
     }
 }
