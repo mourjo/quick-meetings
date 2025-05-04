@@ -119,65 +119,76 @@ class MeetingCreationTests {
             ZoneOffset.ofHoursMinutes(5, 30)
         );
         var zone = "Asia/Kolkata";
-        var meetingDuration = Duration.ofMinutes(30);
+        var thirtyMins = Duration.ofMinutes(30);
         var debbie = userService.createUser("debbie");
 
         createMeeting(
             debbie,
             "Debbie's meeting",
             startTime,
-            startTime.plus(meetingDuration),
+            startTime.plus(thirtyMins),
             zone
         );
 
+        // -----------------------------------------------------------------------------------
         var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
             startTime,
-            startTime.plus(meetingDuration)
+            startTime.plus(thirtyMins)
         );
-
         assertThat(overlappingMeetings).hasSize(1);
+
+        // -----------------------------------------------------------------------------------
 
         var fifteenMinsLater = startTime.plusMinutes(15);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
             fifteenMinsLater,
-            fifteenMinsLater.plus(meetingDuration)
+            fifteenMinsLater.plus(thirtyMins)
         );
         assertThat(overlappingMeetings).hasSize(1);
+
+        // -----------------------------------------------------------------------------------
 
         var fifteenMinsEarlier = startTime.minusMinutes(15);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
             fifteenMinsEarlier,
-            fifteenMinsEarlier.plus(meetingDuration)
+            fifteenMinsEarlier.plus(thirtyMins)
         );
         assertThat(overlappingMeetings).hasSize(1);
 
-        var muchLater = startTime.plusHours(10);
+        // -----------------------------------------------------------------------------------
+
+        var tenHoursLater = startTime.plusHours(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            muchLater,
-            muchLater.plus(meetingDuration)
+            tenHoursLater,
+            tenHoursLater.plus(thirtyMins)
         );
         assertThat(overlappingMeetings).isEmpty();
 
-        var muchEarlier = startTime.minusHours(10);
+        // -----------------------------------------------------------------------------------
+
+        var tenHoursEarlier = startTime.minusHours(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            muchEarlier,
-            muchEarlier.plus(meetingDuration)
+            tenHoursEarlier,
+            tenHoursEarlier.plus(thirtyMins)
         );
         assertThat(overlappingMeetings).isEmpty();
 
-        var later = startTime.plusMinutes(5);
+        // -----------------------------------------------------------------------------------
 
+        var fiveMinsLater = startTime.plusMinutes(5);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
-            later,
-            later.plus(Duration.ofMinutes(5))
+            fiveMinsLater,
+            fiveMinsLater.plus(Duration.ofMinutes(5))
         );
         assertThat(overlappingMeetings).hasSize(1);
+
+        // -----------------------------------------------------------------------------------
 
         var earlier = startTime.minusDays(10);
         overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
