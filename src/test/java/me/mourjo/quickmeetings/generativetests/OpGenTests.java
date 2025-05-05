@@ -111,22 +111,19 @@ public class OpGenTests {
 
             state.userMeetingRepository.findAll()
                 .parallelStream()
-                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER)
+                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER
+                    || userMeeting.userRole() == RoleOfUser.ACCEPTED)
                 .forEach(userMeeting -> {
 
                     var meeting = state.meetingRepository.findById(userMeeting.meetingId()).get();
-
-                    var userId = userMeeting.userId();
                     assertThat(
                         state.meetingRepository.findOverlappingMeetingsForUser(
-                            userId,
+                            userMeeting.userId(),
                             meeting.startAt(),
                             meeting.endAt()
                         ).size()
                     ).isEqualTo(1);
-
                 });
-
         }).run();
     }
 
@@ -265,7 +262,9 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
     public Arbitrary<Transformer<MeetingState>> transformer() {
         return meetingInputs()
             .map(tuple -> Transformer.mutate(
-                    String.format("creating a meeting (%s)", tuple),
+                    String.format("user-%s-%s is creating a meeting from [%s] to [%s]",
+                        tuple.get2().id(), tuple.get2().name(),
+                        tuple.get3(), tuple.get3().plusMinutes(tuple.get4())),
                     state -> {
                         try {
                             var name = tuple.get1();
