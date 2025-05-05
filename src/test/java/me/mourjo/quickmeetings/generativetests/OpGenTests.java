@@ -56,14 +56,13 @@ public class OpGenTests {
 
 
     @BeforeTry
-    void cleanup() {
+    void cleanup(@Autowired UserMeetingRepository userMeetingRepository,
+        @Autowired MeetingRepository meetingRepository) {
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
     }
 
-
     public MeetingState init() {
-
         return new MeetingState(
             meetingsService,
             meetingRepository,
@@ -79,21 +78,13 @@ public class OpGenTests {
 
     @BeforeProperty
     void createUsers(@Autowired UserService userService1) {
-
         alice = userService1.createUser("alice");
         bob = userService1.createUser("bob");
         charlie = userService1.createUser("charlie");
-
     }
 
     @Property
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-
-//        if (alice == null) {
-//            alice = userService.createUser("alice");
-//            bob = userService.createUser("bob");
-//            charlie = userService.createUser("charlie");
-//        }
         chain.run();
     }
 
@@ -120,7 +111,6 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer() {
         Arbitrary<String> meetingNames = Arbitraries.strings().alpha().ofLength(5);
-        //Arbitrary<User> users = Arbitraries.of(List.of(alice, bob, charlie));
 
         Arbitrary<LocalDateTime> starts = new DefaultLocalDateTimeArbitrary().atTheEarliest(now)
             .atTheLatest(now.plusHours(24));
