@@ -46,7 +46,8 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
             )
         );
 
-        assertFailure(RequestUtils.inviteAcceptanceRequest(
+        assertFailure(
+            RequestUtils.inviteAcceptanceRequest(
                 aliceMeetingId,
                 alice.id()
             )
