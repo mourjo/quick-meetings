@@ -2,72 +2,15 @@ package me.mourjo.quickmeetings.it;
 
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.INVITED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.OWNER;
-import static me.mourjo.quickmeetings.utils.UserUtils.alice;
-import static me.mourjo.quickmeetings.utils.UserUtils.bob;
-import static me.mourjo.quickmeetings.utils.UserUtils.charlie;
-import static me.mourjo.quickmeetings.utils.UserUtils.dick;
-import static me.mourjo.quickmeetings.utils.UserUtils.erin;
-import static me.mourjo.quickmeetings.utils.UserUtils.frank;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import java.time.ZonedDateTime;
 import java.util.List;
-import me.mourjo.quickmeetings.db.MeetingRepository;
-import me.mourjo.quickmeetings.db.UserMeetingRepository;
-import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
-import me.mourjo.quickmeetings.service.MeetingsService;
-import me.mourjo.quickmeetings.service.UserService;
-import me.mourjo.quickmeetings.utils.MeetingUtils;
-import me.mourjo.quickmeetings.utils.UserUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-public class MeetingInviteTests {
-
-    @Autowired
-    MeetingsService meetingsService;
-
-    @Autowired
-    MeetingRepository meetingRepository;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    UserMeetingRepository userMeetingRepository;
-
-    @Autowired
-    UserService userService;
-
-    MeetingUtils meetingUtils;
-    UserUtils userUtils;
-
-    ZonedDateTime now = ZonedDateTime.now();
-
-    @AfterEach
-    void teardown() {
-        userMeetingRepository.deleteAll();
-        userRepository.deleteAll();
-        meetingRepository.deleteAll();
-    }
-
-
-    @BeforeEach
-    void setup() {
-        meetingUtils = new MeetingUtils(
-            userService, meetingsService, meetingRepository, userRepository, userMeetingRepository
-        );
-        userUtils = new UserUtils(
-            userService, userRepository
-        );
-    }
+public class MeetingInviteTests extends BaseIT {
 
     @Test
     void inviteUsersToNonExistentMeeting() {

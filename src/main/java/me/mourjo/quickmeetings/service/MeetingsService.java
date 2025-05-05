@@ -34,6 +34,10 @@ public class MeetingsService {
         this.userMeetingRepository = userMeetingRepository;
     }
 
+    public boolean invite(long meetingId, long userId) {
+        return invite(meetingId, List.of(userId));
+    }
+
     public boolean invite(long meetingId, List<Long> users) {
         var meeting = meetingRepository.findById(meetingId)
             .orElseThrow(() -> new MeetingNotFoundException(meetingId));
