@@ -73,7 +73,7 @@ public class MeetingCreationGenTests {
         String zone) {
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
 
-        var req = RequestUtils.meetingRequest(
+        var req = RequestUtils.meetingCreationRequest(
             1,
             meetingName,
             from,

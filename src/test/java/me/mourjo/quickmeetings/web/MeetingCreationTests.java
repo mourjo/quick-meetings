@@ -1,9 +1,9 @@
 package me.mourjo.quickmeetings.web;
 
+import static me.mourjo.quickmeetings.utils.RequestUtils.readJsonPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -12,43 +12,13 @@ import java.time.temporal.TemporalAccessor;
 import java.util.UUID;
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.Meeting;
-import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
-import me.mourjo.quickmeetings.db.UserMeetingRepository;
-import me.mourjo.quickmeetings.db.UserRepository;
-import me.mourjo.quickmeetings.service.MeetingsService;
-import me.mourjo.quickmeetings.service.UserService;
+import me.mourjo.quickmeetings.it.BaseIT;
 import me.mourjo.quickmeetings.utils.RequestUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class MeetingCreationTests {
-
-    @Autowired
-    MeetingsService meetingsService;
-
-    @Autowired
-    MeetingRepository meetingRepository;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    UserMeetingRepository userMeetingRepository;
-
-    @Autowired
-    UserService userService;
-
-    @Autowired
-    MockMvc mockMvc;
+class MeetingCreationTests extends BaseIT {
 
     @SneakyThrows
     @Test
@@ -95,24 +65,17 @@ class MeetingCreationTests {
 
         var debbieMeetings = meetingRepository.findAllConfirmedMeetingsForUser(debbie.id());
         assertThat(debbieMeetings.size()).isEqualTo(1);
-        verifyMeetingName(debbieMeeting.id(), "Debbie's meeting");
-        verifyRole(debbieMeeting.id(), debbie.id(), RoleOfUser.OWNER);
+        meetingUtils.validateMeetingName(debbieMeeting.id(), "Debbie's meeting");
+        meetingUtils.validateMeetingRole(debbieMeeting.id(), debbie.id(), RoleOfUser.OWNER);
 
         var justinMeetings = meetingRepository.findAllConfirmedMeetingsForUser(justin.id());
         assertThat(justinMeetings.size()).isEqualTo(1);
-        verifyMeetingName(justinMeeting.id(), "Justin's meeting");
+        meetingUtils.validateMeetingName(justinMeeting.id(), "Justin's meeting");
 
         var peterMeetings = meetingRepository.findAllConfirmedMeetingsForUser(peter.id());
         assertThat(peterMeetings).isEmpty();
     }
 
-    @AfterEach
-    @BeforeEach
-    void setUp() {
-        userMeetingRepository.deleteAll();
-        userRepository.deleteAll();
-        meetingRepository.deleteAll();
-    }
 
     @Test
     void overlappingMeetingTest() {
@@ -191,26 +154,12 @@ class MeetingCreationTests {
         assertThat(overlappingMeetings).hasSize(1);
     }
 
-    private void verifyRole(long meetingId, long userId, RoleOfUser role) {
-        var meetings = userMeetingRepository.findAllByMeetingId(meetingId);
-        assertThat(meetings.size()).isEqualTo(1);
-        assertThat(meetings.get(0).userRole()).isEqualTo(RoleOfUser.OWNER);
-        assertThat(meetings.get(0).userId()).isEqualTo(userId);
-    }
-
-    private void verifyMeetingName(long meetingId, String name) {
-        var maybeMeeting = meetingRepository.findById(meetingId);
-        assertThat(maybeMeeting).isPresent();
-
-        var meeting = maybeMeeting.get();
-        assertThat(meeting.name()).isEqualTo(name);
-    }
 
     @SneakyThrows
     private Meeting createMeeting(User user, String meetingName, TemporalAccessor from,
         TemporalAccessor to,
         String zone) {
-        var req = RequestUtils.meetingRequest(
+        var req = RequestUtils.meetingCreationRequest(
             user.id(),
             meetingName,
             from,
@@ -219,10 +168,7 @@ class MeetingCreationTests {
         );
 
         var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
-        var meetingId = Long.parseLong(
-            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString()
-        );
-
+        var meetingId = Long.parseLong(readJsonPath(result, "$.id"));
         return meetingRepository.findById(meetingId).get();
     }
 

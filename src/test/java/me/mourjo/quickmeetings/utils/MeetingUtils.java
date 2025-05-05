@@ -39,6 +39,15 @@ public class MeetingUtils {
         assertThat(meetingRoles.get(0).userRole()).isEqualTo(role);
     }
 
+    public void validateMeetingName(long meetingId, String name) {
+        var maybeMeeting = meetingRepository.findById(meetingId);
+        assertThat(maybeMeeting).isPresent();
+
+        var meeting = maybeMeeting.get();
+        assertThat(meeting.name()).isEqualTo(name);
+    }
+
+
     public void acceptInvite(long meetingId, long userId) {
         userMeetingRepository.findAllByMeetingId(meetingId).stream()
             .filter(userMeeting -> userMeeting.userId() == userId)

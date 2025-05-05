@@ -1,23 +1,16 @@
 package me.mourjo.quickmeetings.generativetests;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.jayway.jsonpath.JsonPath;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAccessor;
-import java.util.UUID;
 import lombok.SneakyThrows;
-import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
-import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
-import me.mourjo.quickmeetings.utils.RequestUtils;
 import net.jqwik.api.Disabled;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -114,33 +107,6 @@ public class OverlappingMeetingsGenTest {
         userMeetingRepository.deleteAll();
         userRepository.deleteAll();
         meetingRepository.deleteAll();
-    }
-
-    @SneakyThrows
-    Meeting createMeeting(User user, String meetingName, TemporalAccessor from, TemporalAccessor to,
-        String zone) {
-        var req = RequestUtils.meetingRequest(
-            user.id(),
-            meetingName,
-            from,
-            to,
-            zone
-        );
-
-        var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
-        var meetingId = Long.parseLong(
-            JsonPath.read(result.getResponse().getContentAsString(), "$.id").toString()
-        );
-
-        return meetingRepository.findById(meetingId).get();
-    }
-
-    @SneakyThrows
-    public Meeting createMeeting(TemporalAccessor from, TemporalAccessor to, String zone) {
-        String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
-        var user = userService.createUser("random-" + UUID.randomUUID());
-
-        return createMeeting(user, meetingName, from, to, zone);
     }
 
 }

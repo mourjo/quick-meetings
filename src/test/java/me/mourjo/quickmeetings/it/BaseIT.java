@@ -11,31 +11,37 @@ import me.mourjo.quickmeetings.utils.MeetingUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.web.servlet.MockMvc;
 
+@AutoConfigureMockMvc
 @SpringBootTest
 public abstract class BaseIT {
 
     @Autowired
-    MeetingsService meetingsService;
+    public MeetingsService meetingsService;
 
     @Autowired
-    MeetingRepository meetingRepository;
+    public MeetingRepository meetingRepository;
 
     @Autowired
-    UserRepository userRepository;
+    public UserRepository userRepository;
 
     @Autowired
-    UserMeetingRepository userMeetingRepository;
+    public UserMeetingRepository userMeetingRepository;
 
     @Autowired
-    UserService userService;
+    public UserService userService;
 
-    MeetingUtils meetingUtils;
+    @Autowired
+    public MockMvc mockMvc;
 
-    ZonedDateTime now = ZonedDateTime.now();
+    public MeetingUtils meetingUtils;
 
-    User alice, bob, charlie, dick, erin, frank;
+    public ZonedDateTime now = ZonedDateTime.now();
+
+    public User alice, bob, charlie, dick, erin, frank;
 
     @AfterEach
     void teardown() {
