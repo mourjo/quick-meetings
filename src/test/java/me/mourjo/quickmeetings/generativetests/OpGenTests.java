@@ -22,7 +22,6 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -106,7 +105,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property(shrinking = ShrinkingMode.FULL)
+    @Property
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
 
@@ -124,7 +123,7 @@ public class OpGenTests {
                             meeting.startAt(),
                             meeting.endAt()
                         ).size()
-                    ).isLessThanOrEqualTo(1);
+                    ).isEqualTo(1);
 
                 });
 
@@ -136,8 +135,6 @@ public class OpGenTests {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
                 UPPER_BOUND_TS))
-//            .withAction(new CheckOverlappingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
-//                UPPER_BOUND_TS))
 //            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
 
