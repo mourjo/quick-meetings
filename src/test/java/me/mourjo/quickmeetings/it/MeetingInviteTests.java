@@ -127,4 +127,16 @@ public class MeetingInviteTests extends BaseIT {
         meetingUtils.validateMeetingRole(aliceMeetingId, dick.id(), INVITED);
         assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(4);
     }
+
+    @Test
+    void inviteSelfToMeeting() {
+        var aliceMeetingId = meetingsService.createMeeting(
+            "Alice's meeting",
+            alice.id(),
+            now,
+            now.plusMinutes(60)
+        );
+        assertThat(meetingsService.invite(aliceMeetingId, List.of(alice.id()))).isFalse();
+        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
+    }
 }
