@@ -33,13 +33,31 @@ public class RequestUtils {
         );
     }
 
-    public static MockHttpServletRequestBuilder meetingInviteRequest(long meetingId,
-        List<Long> meetingIds) {
-
-        return meetingInvitationBody(meetingId, meetingIds);
+    public static MockHttpServletRequestBuilder inviteCreationRequest(long meetingId,
+        List<Long> invitees) {
+        return inviteCreationBody(meetingId, invitees);
     }
 
-    private static MockHttpServletRequestBuilder meetingInvitationBody(long meetingId,
+    public static MockHttpServletRequestBuilder inviteAcceptanceRequest(long meetingId,
+        long userId) {
+        return invitationAcceptanceBody(meetingId, userId);
+    }
+
+    private static MockHttpServletRequestBuilder invitationAcceptanceBody(long meetingId,
+        long userId) {
+        return MockMvcRequestBuilders.post("/meeting/accept")
+            .content("""
+                {
+                  "meetingId": %s,
+                  "userId": %s
+                }
+                """.formatted(
+                meetingId,
+                userId
+            )).contentType(MediaType.APPLICATION_JSON);
+    }
+
+    private static MockHttpServletRequestBuilder inviteCreationBody(long meetingId,
         List<Long> invitees) {
         return MockMvcRequestBuilders.post("/meeting/invite")
             .content("""

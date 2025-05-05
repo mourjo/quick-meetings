@@ -18,7 +18,7 @@ import me.mourjo.quickmeetings.it.BaseIT;
 import me.mourjo.quickmeetings.utils.RequestUtils;
 import org.junit.jupiter.api.Test;
 
-class MeetingCreationTests extends BaseIT {
+class MeetingCreationWebTests extends BaseIT {
 
     @SneakyThrows
     @Test

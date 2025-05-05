@@ -10,7 +10,7 @@ import me.mourjo.quickmeetings.it.BaseIT;
 import me.mourjo.quickmeetings.utils.RequestUtils;
 import org.junit.jupiter.api.Test;
 
-public class MeetingInviteTests extends BaseIT {
+public class MeetingInviteWebTests extends BaseIT {
 
     @SneakyThrows
     @Test
@@ -22,7 +22,7 @@ public class MeetingInviteTests extends BaseIT {
             now.plusMinutes(30)
         );
 
-        var req = RequestUtils.meetingInviteRequest(
+        var req = RequestUtils.inviteCreationRequest(
             aliceMeetingId,
             List.of(bob.id(), charlie.id())
         );
@@ -44,7 +44,7 @@ public class MeetingInviteTests extends BaseIT {
 
         // inviting Bob and Charlie to Alice's meeting is OK
         mockMvc.perform(
-            RequestUtils.meetingInviteRequest(
+            RequestUtils.inviteCreationRequest(
                 aliceMeetingId,
                 List.of(bob.id(), charlie.id())
             )
@@ -59,7 +59,7 @@ public class MeetingInviteTests extends BaseIT {
         );
 
         // inviting Alice to Dick's meeting should fail
-        var req = RequestUtils.meetingInviteRequest(
+        var req = RequestUtils.inviteCreationRequest(
             dickMeetingId,
             List.of(erin.id(), alice.id())
         );
@@ -70,7 +70,7 @@ public class MeetingInviteTests extends BaseIT {
         // inviting Erin and Frank to Dick's meeting is OK multiple times
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(
-                RequestUtils.meetingInviteRequest(
+                RequestUtils.inviteCreationRequest(
                     dickMeetingId,
                     List.of(erin.id(), frank.id())
                 )
@@ -79,7 +79,7 @@ public class MeetingInviteTests extends BaseIT {
 
         // inviting Dick to Alice's meeting is not OK
         mockMvc.perform(
-            RequestUtils.meetingInviteRequest(
+            RequestUtils.inviteCreationRequest(
                 aliceMeetingId,
                 List.of(dick.id())
             )

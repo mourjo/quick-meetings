@@ -71,7 +71,7 @@ public class MeetingsController {
         @RequestBody MeetingInviteAcceptanceRequest request) {
         if (meetingsService.accept(request.meetingId(), request.userId())) {
             return ResponseEntity.ok(
-                new MeetingInviteAcceptanceResponse("Invited successfully"));
+                new MeetingInviteAcceptanceResponse("Accepted successfully"));
         }
 
         return ResponseEntity.status(400)
