@@ -57,7 +57,5 @@ public class RequestUtils {
                 timezone
             ))
             .contentType(MediaType.APPLICATION_JSON);
-
-
     }
 }

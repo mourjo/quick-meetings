@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
+import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -36,7 +37,7 @@ public class MeetingCreationTests extends BaseIT {
     }
 
     @Test
-    void overlappingMeetings() {
+    void overlappingOwnerMeetings() {
         meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
@@ -59,6 +60,18 @@ public class MeetingCreationTests extends BaseIT {
                 now.plusMinutes(90)
             )
         );
+    }
+
+    @Test
+    void nonexistentOwner() {
+        assertThatExceptionOfType(UserNotFoundException.class).isThrownBy(
+            () -> meetingsService.createMeeting(
+                "Unknown's meeting",
+                199L,
+                now.plusMinutes(10),
+                now.plusMinutes(70)
+            )
+        ).withMessageContaining("Users [199] not found");
     }
 
     @Test

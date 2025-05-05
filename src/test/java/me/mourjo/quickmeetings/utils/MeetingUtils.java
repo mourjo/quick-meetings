@@ -46,6 +46,4 @@ public class MeetingUtils {
                 UserMeeting.buildFrom(invite).userRole(ACCEPTED).build()
             ));
     }
-
-
 }
