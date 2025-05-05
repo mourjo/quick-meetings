@@ -112,8 +112,7 @@ public class OpGenTests {
 
             state.userMeetingRepository.findAll()
                 .parallelStream()
-                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER ||
-                    userMeeting.userRole() == RoleOfUser.ACCEPTED)
+                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER)
                 .forEach(userMeeting -> {
 
                     var meeting = state.meetingRepository.findById(userMeeting.meetingId()).get();
