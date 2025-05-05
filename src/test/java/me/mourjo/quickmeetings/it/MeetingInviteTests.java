@@ -1,23 +1,27 @@
-package me.mourjo.quickmeetings.web;
+package me.mourjo.quickmeetings.it;
 
-import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.ACCEPTED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.INVITED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.OWNER;
+import static me.mourjo.quickmeetings.utils.UserUtils.alice;
+import static me.mourjo.quickmeetings.utils.UserUtils.bob;
+import static me.mourjo.quickmeetings.utils.UserUtils.charlie;
+import static me.mourjo.quickmeetings.utils.UserUtils.dick;
+import static me.mourjo.quickmeetings.utils.UserUtils.erin;
+import static me.mourjo.quickmeetings.utils.UserUtils.frank;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 import me.mourjo.quickmeetings.db.MeetingRepository;
-import me.mourjo.quickmeetings.db.User;
-import me.mourjo.quickmeetings.db.UserMeeting;
-import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import me.mourjo.quickmeetings.utils.MeetingUtils;
+import me.mourjo.quickmeetings.utils.UserUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +46,8 @@ public class MeetingInviteTests {
     @Autowired
     UserService userService;
 
-    User alice, bob, charlie, dick, erin, frank;
+    MeetingUtils meetingUtils;
+    UserUtils userUtils;
 
     ZonedDateTime now = ZonedDateTime.now();
 
@@ -56,12 +61,12 @@ public class MeetingInviteTests {
 
     @BeforeEach
     void setup() {
-        alice = userService.createUser("Alice");
-        bob = userService.createUser("Bob");
-        charlie = userService.createUser("Charlie");
-        dick = userService.createUser("Dick");
-        erin = userService.createUser("Erin");
-        frank = userService.createUser("Frank");
+        meetingUtils = new MeetingUtils(
+            userService, meetingsService, meetingRepository, userRepository, userMeetingRepository
+        );
+        userUtils = new UserUtils(
+            userService, userRepository
+        );
     }
 
     @Test
@@ -120,7 +125,7 @@ public class MeetingInviteTests {
         var invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(charlie.id()));
         assertThat(invitedSuccessfully).isTrue();
 
-        acceptInvite(bobMeetingId, charlie.id());
+        meetingUtils.acceptInvite(bobMeetingId, charlie.id());
         var dickMeetingId = meetingsService.createMeeting(
             "Dick's meeting",
             dick.id(),
@@ -142,13 +147,6 @@ public class MeetingInviteTests {
         assertThat(invitedSuccessfully).isFalse();
     }
 
-    void acceptInvite(long meetingId, long userId) {
-        userMeetingRepository.findAllByMeetingId(meetingId).stream()
-            .filter(userMeeting -> userMeeting.userId() == userId)
-            .forEach(invite -> userMeetingRepository.save(
-                UserMeeting.buildFrom(invite).userRole(ACCEPTED).build()
-            ));
-    }
 
     @Test
     void inviteUsersToMeeting() {
@@ -168,32 +166,22 @@ public class MeetingInviteTests {
         assertThat(invitedSuccessfully).isTrue();
 
         meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
-        validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
         assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(3);
 
         meetingsService.invite(aliceMeetingId, List.of(charlie.id()));
-        validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
         assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(3);
 
         meetingsService.invite(aliceMeetingId, List.of(dick.id()));
-        validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
-        validateMeetingRole(aliceMeetingId, dick.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeetingId, dick.id(), INVITED);
         assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(4);
-    }
-
-
-    void validateMeetingRole(long meetingId, long userId, RoleOfUser role) {
-        var userMeetings = userMeetingRepository.findAllByMeetingId(meetingId);
-        var meetingRoles = userMeetings.stream()
-            .filter(um -> um.userId() == userId)
-            .toList();
-        assertThat(meetingRoles.size()).isEqualTo(1);
-        assertThat(meetingRoles.get(0).userRole()).isEqualTo(role);
     }
 }
