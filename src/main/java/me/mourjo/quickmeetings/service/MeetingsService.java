@@ -1,5 +1,6 @@
 package me.mourjo.quickmeetings.service;
 
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -82,12 +83,16 @@ public class MeetingsService {
     }
 
     public long createMeeting(String name, long userId, ZonedDateTime from, ZonedDateTime to) {
+        return createMeeting(name, userId, from.toOffsetDateTime(), to.toOffsetDateTime());
+    }
+
+    public long createMeeting(String name, long userId, OffsetDateTime from, OffsetDateTime to) {
         var maybeUser = userRepository.findById(userId);
         if (maybeUser.isPresent()) {
             var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
                 userId,
-                from.toOffsetDateTime(),
-                to.toOffsetDateTime()
+                from,
+                to
             );
 
             if (!overlappingMeetings.isEmpty()) {
@@ -96,8 +101,8 @@ public class MeetingsService {
 
             var meeting = meetingRepository.save(
                 Meeting.builder()
-                    .startAt(from.toOffsetDateTime())
-                    .endAt(to.toOffsetDateTime())
+                    .startAt(from)
+                    .endAt(to)
                     .name(name)
                     .build()
             );
