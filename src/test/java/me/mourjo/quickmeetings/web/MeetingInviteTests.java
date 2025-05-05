@@ -42,10 +42,7 @@ public class MeetingInviteTests {
     @Autowired
     UserService userService;
 
-    User alice;
-    User bob;
-    User charlie;
-    User dick;
+    User alice, bob, charlie, dick, erin, frank;
 
     ZonedDateTime now = ZonedDateTime.now();
 
@@ -63,6 +60,8 @@ public class MeetingInviteTests {
         bob = userService.createUser("Bob");
         charlie = userService.createUser("Charlie");
         dick = userService.createUser("Dick");
+        erin = userService.createUser("Erin");
+        frank = userService.createUser("Frank");
     }
 
     @Test
@@ -100,11 +99,13 @@ public class MeetingInviteTests {
 
     @Test
     void overlappingMeetingInvites() {
+        var aliceMeetingStart = now;
+        var aliceMeetingEnd = now.plusMinutes(60);
         var aliceMeetingId = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
-            now,
-            now.plusMinutes(60)
+            aliceMeetingStart,
+            aliceMeetingEnd
         );
 
         meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
@@ -112,23 +113,32 @@ public class MeetingInviteTests {
         var bobMeetingId = meetingsService.createMeeting(
             "Bob's meeting",
             bob.id(),
-            now.plusMinutes(10),
-            now.plusMinutes(70)
+            aliceMeetingStart.plusMinutes(10),
+            aliceMeetingEnd.plusMinutes(10)
         );
 
         var invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(charlie.id()));
         assertThat(invitedSuccessfully).isTrue();
 
         acceptInvite(bobMeetingId, charlie.id());
-
         var dickMeetingId = meetingsService.createMeeting(
             "Dick's meeting",
             dick.id(),
-            now.plusMinutes(20),
-            now.plusMinutes(80)
+            aliceMeetingStart.plusMinutes(20),
+            aliceMeetingEnd.plusMinutes(20)
         );
-
         invitedSuccessfully = meetingsService.invite(dickMeetingId, List.of(charlie.id()));
+        assertThat(invitedSuccessfully).isFalse();
+
+        meetingsService.createMeeting(
+            "Erin's meeting",
+            erin.id(),
+            aliceMeetingStart,
+            aliceMeetingEnd.minusMinutes(30)
+        );
+        invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(frank.id()));
+        assertThat(invitedSuccessfully).isTrue();
+        invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(alice.id()));
         assertThat(invitedSuccessfully).isFalse();
     }
 
