@@ -84,7 +84,7 @@ public class MeetingCreationTests extends BaseIT {
         );
 
         meetingsService.invite(aliceMeeting, bob.id());
-        meetingUtils.acceptInvite(aliceMeeting, bob.id());
+        meetingsService.accept(aliceMeeting, bob.id());
 
         assertThatExceptionOfType(OverlappingMeetingsException.class).isThrownBy(
             () -> meetingsService.createMeeting(

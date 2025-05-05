@@ -68,7 +68,7 @@ public class MeetingInviteTests extends BaseIT {
         var invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(charlie.id()));
         assertThat(invitedSuccessfully).isTrue();
 
-        meetingUtils.acceptInvite(bobMeetingId, charlie.id());
+        meetingsService.accept(bobMeetingId, charlie.id());
         var dickMeetingId = meetingsService.createMeeting(
             "Dick's meeting",
             dick.id(),

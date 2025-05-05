@@ -1,10 +1,8 @@
 package me.mourjo.quickmeetings.utils;
 
-import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.ACCEPTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import me.mourjo.quickmeetings.db.MeetingRepository;
-import me.mourjo.quickmeetings.db.UserMeeting;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
@@ -45,14 +43,5 @@ public class MeetingUtils {
 
         var meeting = maybeMeeting.get();
         assertThat(meeting.name()).isEqualTo(name);
-    }
-
-
-    public void acceptInvite(long meetingId, long userId) {
-        userMeetingRepository.findAllByMeetingId(meetingId).stream()
-            .filter(userMeeting -> userMeeting.userId() == userId)
-            .forEach(invite -> userMeetingRepository.save(
-                UserMeeting.buildFrom(invite).userRole(ACCEPTED).build()
-            ));
     }
 }
