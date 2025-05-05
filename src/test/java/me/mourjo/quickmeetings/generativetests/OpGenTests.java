@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
@@ -68,6 +69,12 @@ public class OpGenTests {
     }
 
     public MeetingState init() {
+        meetingsService.createMeeting(
+            "Pre-test",
+            bob.id(),
+            LOWER_BOUND_TS.plusMinutes(10),
+            LOWER_BOUND_TS.plusMinutes(40)
+        );
         return new MeetingState(
             meetingsService,
             meetingRepository,
@@ -96,7 +103,8 @@ public class OpGenTests {
             .withAction(new CreateMeetingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
                 UPPER_BOUND_TS))
             .withAction(new CheckOverlappingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
-                UPPER_BOUND_TS));
+                UPPER_BOUND_TS))
+            .withAction(new CreateInvitationAction());
     }
 
 }
@@ -106,7 +114,6 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
     List<User> availableUsers;
     OffsetDateTime minTime;
     OffsetDateTime maxTime;
-
 
     public CheckOverlappingAction(List<User> availableUsers, OffsetDateTime minTime,
         OffsetDateTime maxTime) {
@@ -133,6 +140,33 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
                                 ts
                             ).size()
                         ).isLessThanOrEqualTo(1);
+                    }
+                )
+            );
+    }
+}
+
+
+class CreateInvitationAction implements Action.Dependent<MeetingState> {
+
+    @Override
+    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
+        Arbitrary<Long> meetingIds = Arbitraries.of(
+            previousState.meetingRepository.findAll().stream().map(Meeting::id).toList());
+        Arbitrary<User> users = Arbitraries.of(
+            previousState.userRepository.findAll()
+        );
+
+        return Combinators.combine(
+                meetingIds,
+                users
+            ).as(Tuple::of)
+            .map(tuple -> Transformer.mutate(
+                    "Inviting user-%s to meeting-".formatted(tuple.get2().name(), tuple.get1()),
+                    state -> {
+                        var meetingId = tuple.get1();
+                        var user = tuple.get2();
+                        state.meetingsService.invite(meetingId, user.id());
                     }
                 )
             );
