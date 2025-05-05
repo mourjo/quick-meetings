@@ -17,8 +17,6 @@ import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -67,7 +65,7 @@ public class OverlappingMeetingsGenTest {
 
     @SneakyThrows
     @Property
-    void uniqueInList(
+    void overlappingMeetingsCannotBeCreated(
         @ForAll @DateTimeRange(min = "2025-01-01T10:00:00", max = "2025-01-01T20:59:59") LocalDateTime meeting1Start,
         @ForAll @IntRange(min = 1, max = 60) int meeting1DurationMins,
         @ForAll @DateTimeRange(min = "2025-01-01T10:00:00", max = "2025-01-01T20:59:59") LocalDateTime meeting2Start,
@@ -98,15 +96,5 @@ public class OverlappingMeetingsGenTest {
         } else {
             assertThat(overlappingMeetingsDb).isEmpty();
         }
-
     }
-
-    @AfterEach
-    @BeforeEach
-    void setUp() {
-        userMeetingRepository.deleteAll();
-        userRepository.deleteAll();
-        meetingRepository.deleteAll();
-    }
-
 }
