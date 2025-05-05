@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.Builder;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
@@ -23,6 +22,8 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Tuple;
+import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.lifecycle.BeforeTry;
 import net.jqwik.api.state.Action;
@@ -119,6 +120,7 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
     List<User> availableUsers;
     OffsetDateTime minTime;
     OffsetDateTime maxTime;
+
     public CheckOverlappingAction(List<User> availableUsers, OffsetDateTime minTime,
         OffsetDateTime maxTime) {
         this.availableUsers = availableUsers;
@@ -128,30 +130,20 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer() {
-        Arbitrary<OffsetDateTime> ts = new DefaultOffsetDateTimeArbitrary()
+
+        return new DefaultOffsetDateTimeArbitrary()
             .atTheEarliest(minTime.toLocalDateTime())
-            .atTheLatest(maxTime.toLocalDateTime());
-
-        //        for (var meetingId : finalState.userToMeetings.get(alice)) {
-//            var meeting = meetingRepository.findById(meetingId).get();
-//            var overlapping = meetingRepository.findOverlappingMeetingsForUser(alice.id(),
-//                meeting.startAt(), meeting.endAt());
-//            assertThat(overlapping.size()).isEqualTo(1)
-//                .withFailMessage(() -> "failed for" + meeting);
-//        }
-        return ts.map(element -> Transformer.mutate(
-                "verifying at " + element,
-                meetingState -> {
-
-                    assertThat(
-                        meetingState.meetingRepository.findOverlappingMeetingsForUser(
+            .atTheLatest(maxTime.toLocalDateTime())
+            .map(element -> Transformer.mutate(
+                    "verifying at " + element,
+                    state -> assertThat(
+                        state.meetingRepository.findOverlappingMeetingsForUser(
                             availableUsers.get(0).id(),
                             element, element
                         ).size()
-                    ).isLessThanOrEqualTo(1);
-                }
-            )
-        );
+                    ).isLessThanOrEqualTo(1)
+                )
+            );
     }
 }
 
@@ -169,61 +161,51 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
         this.maxTime = maxTime;
     }
 
-    @Override
-    public Arbitrary<Transformer<MeetingState>> transformer() {
-        Arbitrary<String> meetingNames = Arbitraries.strings().alpha().ofLength(5);
-
+    Arbitrary<Tuple4<String, User, OffsetDateTime, Integer>> meetingInputs() {
         Arbitrary<OffsetDateTime> starts = new DefaultOffsetDateTimeArbitrary()
             .atTheEarliest(minTime.toLocalDateTime())
             .atTheLatest(maxTime.toLocalDateTime());
 
-        Arbitrary<Integer> meetingLengthMins = Arbitraries.integers().between(1, 60);
-
-        Arbitrary<User> users = Arbitraries.of(availableUsers);
-
-        Arbitrary<MeetingCreationArgs> arb = Combinators.combine(
-            meetingNames,
-            users,
+        return Combinators.combine(
+            Arbitraries.strings().alpha().ofLength(5),
+            Arbitraries.of(availableUsers),
             starts,
-            meetingLengthMins
-        ).as((n, u, s, sl) -> {
+            Arbitraries.integers().between(1, 60)
+        ).as(Tuple::of);
+    }
 
-            return MeetingCreationArgs.builder()
-                .name(n)
-                .user(u)
-                .from(s)
-                .to(s.plusMinutes(sl))
-                .build();
+    @Override
+    public Arbitrary<Transformer<MeetingState>> transformer() {
 
-        });
+        return meetingInputs()
+            .map(element -> Transformer.mutate(
+                    String.format("creating a meeting (%s)", element),
+                    meetingState -> {
+                        try {
+                            var name = element.get1();
+                            var user = element.get2();
+                            var from = element.get3();
+                            var durationMins = element.get4();
+                            var to = from.plusMinutes(durationMins);
 
-        return arb.map(element -> Transformer.mutate(
-            String.format("creating a meeting (%s)", element),
-            meetingState -> {
-                try {
-                    long meetingId = meetingState.meetingsService.createMeeting(
-                        element.name(),
-                        element.user().id(),
-                        element.from(),
-                        element.to()
-                    );
-                    assertThat(meetingId).isGreaterThan(0);
-                    meetingState.userToMeetings.putIfAbsent(element.user(), new ArrayList<>());
-                    meetingState.userToMeetings.get(element.user()).add(meetingId);
-                    assertThat(meetingState.userToMeetings.size()).isLessThanOrEqualTo(3);
-                } catch (OverlappingMeetingsException ex) {
-                    // ignore
-                }
-            }
-        ));
+                            long meetingId = meetingState.meetingsService.createMeeting(
+                                name,
+                                user.id(),
+                                from,
+                                to
+                            );
+                            assertThat(meetingId).isGreaterThan(0);
+                            meetingState.userToMeetings.putIfAbsent(user, new ArrayList<>());
+                            meetingState.userToMeetings.get(user).add(meetingId);
+                            assertThat(meetingState.userToMeetings.size()).isLessThanOrEqualTo(3);
+                        } catch (OverlappingMeetingsException ex) {
+                            // ignore
+                        }
+                    }
+                )
+            );
     }
 }
-
-@Builder
-record MeetingCreationArgs(String name, OffsetDateTime from, OffsetDateTime to, User user) {
-
-}
-
 
 class MeetingState {
 
