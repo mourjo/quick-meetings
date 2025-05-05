@@ -25,46 +25,44 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
 
         meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
 
-        var req = RequestUtils.inviteAcceptanceRequest(
-            aliceMeetingId,
-            bob.id()
+        assertSuccess(
+            RequestUtils.inviteAcceptanceRequest(
+                aliceMeetingId,
+                bob.id()
+            )
         );
-        var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
-        assertThat(readJsonPath(result, "$.message")).isEqualTo("Accepted successfully");
 
-        req = RequestUtils.inviteAcceptanceRequest(
-            aliceMeetingId,
-            dick.id()
+        assertFailure(
+            RequestUtils.inviteAcceptanceRequest(
+                aliceMeetingId,
+                dick.id()
+            )
         );
-        result = mockMvc.perform(req).andExpect(status().is4xxClientError()).andReturn();
-        assertThat(readJsonPath(result, "$.message")).isEqualTo("Failed to accept invite");
 
-        req = RequestUtils.inviteAcceptanceRequest(
-            928374L, // non-existent meeting
-            bob.id()
+        assertFailure(
+            RequestUtils.inviteAcceptanceRequest(
+                928374L, // non-existent meeting
+                bob.id()
+            )
         );
-        result = mockMvc.perform(req).andExpect(status().is4xxClientError()).andReturn();
-        assertThat(readJsonPath(result, "$.message")).isEqualTo("Failed to accept invite");
 
-        req = RequestUtils.inviteAcceptanceRequest(
-            aliceMeetingId,
-            alice.id()
+        assertFailure(RequestUtils.inviteAcceptanceRequest(
+                aliceMeetingId,
+                alice.id()
+            )
         );
-        result = mockMvc.perform(req).andExpect(status().is4xxClientError()).andReturn();
-        assertThat(readJsonPath(result, "$.message")).isEqualTo("Failed to accept invite");
+
     }
 
     @SneakyThrows
-    void successful(MockHttpServletRequestBuilder req) {
+    void assertSuccess(MockHttpServletRequestBuilder req) {
         var result = mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
         assertThat(readJsonPath(result, "$.message")).isEqualTo("Accepted successfully");
     }
 
     @SneakyThrows
-    void failure(MockHttpServletRequestBuilder req) {
+    void assertFailure(MockHttpServletRequestBuilder req) {
         var result = mockMvc.perform(req).andExpect(status().is4xxClientError()).andReturn();
         assertThat(readJsonPath(result, "$.message")).isEqualTo("Failed to accept invite");
     }
-
-
 }
