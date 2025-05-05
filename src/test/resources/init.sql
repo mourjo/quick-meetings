@@ -27,7 +27,8 @@ id serial PRIMARY KEY,
 meeting_id int not null references meetings(id) ON DELETE CASCADE,
 user_id int not null references users(id) ON DELETE CASCADE,
 role_of_user text not null,
-updated_ts TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+updated_ts TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+UNIQUE (meeting_id, user_id)
 );
 
 

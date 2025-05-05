@@ -1,5 +1,8 @@
 package me.mourjo.quickmeetings.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
@@ -24,5 +27,11 @@ public class UserService {
 
     public User getUser(long id) {
         return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    public List<User> getUsers(List<Long> ids) {
+        List<User> users = new ArrayList<>();
+        userRepository.findAllById(ids).forEach(users::add);
+        return Collections.unmodifiableList(users);
     }
 }

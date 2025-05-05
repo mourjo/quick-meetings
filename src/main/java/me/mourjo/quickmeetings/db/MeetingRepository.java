@@ -19,9 +19,9 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
             existing_meeting.updated_ts
         FROM
          meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
-         WHERE um.user_id = :userId AND um.role_of_user IN ('OWNER', 'ACCEPTED')
+         WHERE um.user_id IN (:userIds) AND um.role_of_user IN ('OWNER', 'ACCEPTED')
         """)
-    List<Meeting> findAllConfirmedMeetingsForUser(@Param("userId") Collection<Long> userId);
+    List<Meeting> findAllConfirmedMeetingsForUser(@Param("userIds") Collection<Long> userIds);
 
     default List<Meeting> findAllConfirmedMeetingsForUser(@Param("userId") long userId) {
         return findAllConfirmedMeetingsForUser(List.of(userId));
@@ -37,7 +37,7 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
             existing_meeting.updated_ts
         FROM
             meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
-        WHERE um.user_id IN (:userId)
+        WHERE um.user_id IN (:userIds)
             AND um.role_of_user IN ('OWNER', 'ACCEPTED')
             AND (
                   (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
@@ -46,7 +46,7 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
                )
         """)
     List<Meeting> findOverlappingMeetingsForUser(
-        @Param("userId") Collection<Long> userId,
+        @Param("userIds") Collection<Long> userId,
         @Param("from") OffsetDateTime from,
         @Param("to") OffsetDateTime to
     );

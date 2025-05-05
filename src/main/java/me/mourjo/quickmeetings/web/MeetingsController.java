@@ -9,6 +9,8 @@ import me.mourjo.quickmeetings.web.dto.MeetingCreationRequest;
 import me.mourjo.quickmeetings.web.dto.MeetingCreationResponse;
 import me.mourjo.quickmeetings.web.dto.MeetingInviteRequest;
 import me.mourjo.quickmeetings.web.dto.MeetingInviteResponse;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,16 +28,26 @@ public class MeetingsController {
     }
 
     @PostMapping("/meeting/invite")
-    ResponseEntity<MeetingInviteResponse> createMeeting(MeetingInviteRequest request) {
-        var usersWithConflicts = meetingsService.invite(request.meetingId(), request.invitees())
-            .stream().map(id -> Long.toString(id)).toList();
-        if (usersWithConflicts.isEmpty()) {
-            return ResponseEntity.ok(new MeetingInviteResponse("Invited successfully"));
+    ResponseEntity<MeetingInviteResponse> invite(@RequestBody MeetingInviteRequest request) {
+        try {
+            var result = meetingsService.invite(request.meetingId(),
+                request.invitees());
+
+            if (result) {
+                return ResponseEntity.ok(new MeetingInviteResponse("Invited successfully"));
+            }
+
+            return ResponseEntity.status(400).body(new MeetingInviteResponse(
+                "Users have conflicts"));
+        } catch (DbActionExecutionException ex) {
+            if (ex.getCause() instanceof DuplicateKeyException) {
+                return ResponseEntity.status(400).body(new MeetingInviteResponse(
+                    "duplicatee"));
+            }
+            return ResponseEntity.status(400).body(new MeetingInviteResponse(
+                "something changed: " + ex.getCause()));
         }
-        return ResponseEntity.status(400).body(new MeetingInviteResponse(
-            "Users have conflicts: %s".formatted(
-                String.join(",", usersWithConflicts)
-            )));
+
     }
 
     @PostMapping("/meeting")

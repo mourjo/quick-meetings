@@ -14,14 +14,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> userNotFound(UserNotFoundException uex) {
         return ResponseEntity
             .status(404)
-            .body(new ErrorResponse("User %s not found".formatted(uex.getUserId())));
+            .body(new ErrorResponse("Users %s not found".formatted(uex.getUserIds())));
     }
 
     @ExceptionHandler(MeetingNotFoundException.class)
     public ResponseEntity<ErrorResponse> meetingNotFound(MeetingNotFoundException uex) {
         return ResponseEntity
             .status(404)
-            .body(new ErrorResponse("User %s not found".formatted(uex.getMeetingId())));
+            .body(new ErrorResponse("Meeting %s not found".formatted(uex.getMeetingId())));
     }
 
 

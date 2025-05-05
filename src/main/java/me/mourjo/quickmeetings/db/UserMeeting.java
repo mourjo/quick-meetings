@@ -25,9 +25,16 @@ public record UserMeeting(
         }
     }
 
+    public static UserMeetingBuilder buildFrom(UserMeeting other) {
+        return UserMeeting.builder()
+            .id(other.id())
+            .userId(other.userId())
+            .meetingId(other.meetingId())
+            .userRole(other.userRole());
+    }
+
     public enum RoleOfUser {
         OWNER,
-        INVITED_OPTIONAL,
         INVITED,
         ACCEPTED,
         REJECTED

@@ -2,8 +2,10 @@ package me.mourjo.quickmeetings.service;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
+import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeeting;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
@@ -17,20 +19,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class MeetingsService {
 
+    private final UserService userService;
     private final MeetingRepository meetingRepository;
     private final UserRepository userRepository;
     private final UserMeetingRepository userMeetingRepository;
 
-    public MeetingsService(MeetingRepository meetingRepository, UserRepository userRepository,
+    public MeetingsService(UserService userService, MeetingRepository meetingRepository,
+        UserRepository userRepository,
         UserMeetingRepository userMeetingRepository) {
+        this.userService = userService;
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
     }
 
-    public List<Long> invite(long meetingId, List<Long> users) {
+    public boolean invite(long meetingId, List<Long> users) {
         var meeting = meetingRepository.findById(meetingId)
             .orElseThrow(() -> new MeetingNotFoundException(meetingId));
+
+        var existingUsers = userService.getUsers(users).stream()
+            .map(User::id)
+            .collect(Collectors.toSet());
+
+        if (!existingUsers.containsAll(users)) {
+            var nonExistingUsers = users.stream().filter(userId -> !existingUsers.contains(userId))
+                .toList();
+            throw new UserNotFoundException(nonExistingUsers);
+        }
 
         var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
             users,
@@ -39,27 +54,27 @@ public class MeetingsService {
         );
 
         if (!overlappingMeetings.isEmpty()) {
-            var problemMeetingIds = meetingRepository.findAllConfirmedMeetingsForUser(users)
-                .stream()
-                .map(Meeting::id)
-                .toList();
-
-            return userMeetingRepository.findByMeetingIdIn(problemMeetingIds)
-                .stream().map(user -> user.userId()).toList();
+            return false;
         }
+
+        var existingAttendees = userMeetingRepository.meetingAttendees(List.of(meetingId))
+            .stream()
+            .map(UserMeeting::userId)
+            .collect(Collectors.toSet());
 
         for (var userId : users) {
-            var invite = UserMeeting.builder()
-                .meetingId(meetingId)
-                .userId(userId)
-                .userRole(RoleOfUser.INVITED)
-                .build();
-            userMeetingRepository.save(invite);
+            if (!existingAttendees.contains(userId)) {
+                var invite = UserMeeting.builder()
+                    .meetingId(meetingId)
+                    .userId(userId)
+                    .userRole(RoleOfUser.INVITED)
+                    .build();
+                userMeetingRepository.save(invite);
+            }
         }
 
-        return users;
+        return true;
     }
-
 
     public long createMeeting(String name, long userId, ZonedDateTime from, ZonedDateTime to) {
         var maybeUser = userRepository.findById(userId);
