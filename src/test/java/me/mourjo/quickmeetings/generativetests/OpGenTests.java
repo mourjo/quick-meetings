@@ -107,9 +107,52 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
+                UPPER_BOUND_TS))
+            .withAction(new CheckOverlappingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
                 UPPER_BOUND_TS));
     }
 
+}
+
+class CheckOverlappingAction implements Action.Independent<MeetingState> {
+
+    List<User> availableUsers;
+    OffsetDateTime minTime;
+    OffsetDateTime maxTime;
+    public CheckOverlappingAction(List<User> availableUsers, OffsetDateTime minTime,
+        OffsetDateTime maxTime) {
+        this.availableUsers = availableUsers;
+        this.minTime = minTime;
+        this.maxTime = maxTime;
+    }
+
+    @Override
+    public Arbitrary<Transformer<MeetingState>> transformer() {
+        Arbitrary<OffsetDateTime> ts = new DefaultOffsetDateTimeArbitrary()
+            .atTheEarliest(minTime.toLocalDateTime())
+            .atTheLatest(maxTime.toLocalDateTime());
+
+        //        for (var meetingId : finalState.userToMeetings.get(alice)) {
+//            var meeting = meetingRepository.findById(meetingId).get();
+//            var overlapping = meetingRepository.findOverlappingMeetingsForUser(alice.id(),
+//                meeting.startAt(), meeting.endAt());
+//            assertThat(overlapping.size()).isEqualTo(1)
+//                .withFailMessage(() -> "failed for" + meeting);
+//        }
+        return ts.map(element -> Transformer.mutate(
+                "verifying at " + element,
+                meetingState -> {
+
+                    assertThat(
+                        meetingState.meetingRepository.findOverlappingMeetingsForUser(
+                            availableUsers.get(0).id(),
+                            element, element
+                        ).size()
+                    ).isLessThanOrEqualTo(1);
+                }
+            )
+        );
+    }
 }
 
 
