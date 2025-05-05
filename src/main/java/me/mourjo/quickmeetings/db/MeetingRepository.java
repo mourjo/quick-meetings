@@ -4,10 +4,10 @@ import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jdbc.repository.query.Query;
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
 
-public interface MeetingRepository extends CrudRepository<Meeting, Long> {
+public interface MeetingRepository extends ListCrudRepository<Meeting, Long> {
 
     @Query("""
          SELECT
@@ -69,5 +69,4 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
             at
         );
     }
-
 }

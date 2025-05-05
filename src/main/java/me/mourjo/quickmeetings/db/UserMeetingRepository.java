@@ -3,10 +3,10 @@ package me.mourjo.quickmeetings.db;
 import java.util.List;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
 
-public interface UserMeetingRepository extends CrudRepository<UserMeeting, Long> {
+public interface UserMeetingRepository extends ListCrudRepository<UserMeeting, Long> {
 
     List<UserMeeting> findByMeetingIdIn(List<Long> meetingIds);
 
