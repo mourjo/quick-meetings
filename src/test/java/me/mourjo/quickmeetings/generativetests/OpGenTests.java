@@ -9,8 +9,10 @@ import java.util.List;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
+import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
@@ -20,6 +22,7 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -46,7 +49,7 @@ public class OpGenTests {
         0,
         0
     ).atOffset(ZoneOffset.UTC);
-    public static final OffsetDateTime UPPER_BOUND_TS = LOWER_BOUND_TS.plusHours(24);
+    public static final OffsetDateTime UPPER_BOUND_TS = LOWER_BOUND_TS.plusHours(2);
     @Autowired
     MeetingsService meetingsService;
     @Autowired
@@ -64,16 +67,20 @@ public class OpGenTests {
     @BeforeTry
     void cleanup(@Autowired UserMeetingRepository userMeetingRepository,
         @Autowired MeetingRepository meetingRepository) {
-        userMeetingRepository.deleteAll();
-        meetingRepository.deleteAll();
+//        userMeetingRepository.deleteAll();
+//        meetingRepository.deleteAll();
     }
 
     public MeetingState init() {
+        userMeetingRepository.deleteAll();
+        meetingRepository.deleteAll();
+
+        // todo remove this initial seed - test for invitations separately
         meetingsService.createMeeting(
             "Pre-test",
             bob.id(),
             LOWER_BOUND_TS.plusMinutes(10),
-            LOWER_BOUND_TS.plusMinutes(40)
+            LOWER_BOUND_TS.plusMinutes(15)
         );
         return new MeetingState(
             meetingsService,
@@ -86,15 +93,43 @@ public class OpGenTests {
     }
 
     @BeforeProperty
-    void createUsers(@Autowired UserService userService1) {
-        alice = userService1.createUser("alice");
-        bob = userService1.createUser("bob");
-        charlie = userService1.createUser("charlie");
+    void createUsers(@Autowired UserService userService, @Autowired UserRepository userRepository,
+        @Autowired MeetingRepository meetingRepository,
+        @Autowired UserMeetingRepository userMeetingRepository) {
+        userMeetingRepository.deleteAll();
+        meetingRepository.deleteAll();
+        userRepository.deleteAll();
+
+        alice = userService.createUser("alice");
+        bob = userService.createUser("bob");
+        charlie = userService.createUser("charlie");
     }
 
-    @Property
+    // (shrinking = ShrinkingMode.FULL)
+    @Property(shrinking = ShrinkingMode.FULL)
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-        chain.run();
+        chain.withInvariant(state -> {
+
+            state.userMeetingRepository.findAll()
+                .parallelStream()
+                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER ||
+                    userMeeting.userRole() == RoleOfUser.ACCEPTED)
+                .forEach(userMeeting -> {
+
+                    var meeting = state.meetingRepository.findById(userMeeting.meetingId()).get();
+
+                    var userId = userMeeting.userId();
+                    assertThat(
+                        state.meetingRepository.findOverlappingMeetingsForUser(
+                            userId,
+                            meeting.startAt(),
+                            meeting.endAt()
+                        ).size()
+                    ).isLessThanOrEqualTo(1);
+
+                });
+
+        }).run();
     }
 
     @Provide
@@ -102,14 +137,17 @@ public class OpGenTests {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
                 UPPER_BOUND_TS))
-            .withAction(new CheckOverlappingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
-                UPPER_BOUND_TS))
-            .withAction(new CreateInvitationAction());
+//            .withAction(new CheckOverlappingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
+//                UPPER_BOUND_TS))
+//            .withAction(new AcceptInvitationAction())
+            .withAction(new CreateInvitationAction())
+
+            ;
     }
 
 }
 
-class CheckOverlappingAction implements Action.Independent<MeetingState> {
+class CheckOverlappingAction implements Action.Dependent<MeetingState> {
 
     List<User> availableUsers;
     OffsetDateTime minTime;
@@ -123,23 +161,23 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
     }
 
     @Override
-    public Arbitrary<Transformer<MeetingState>> transformer() {
-        var timestamps = new DefaultOffsetDateTimeArbitrary()
-            .atTheEarliest(minTime.toLocalDateTime())
-            .atTheLatest(maxTime.toLocalDateTime());
-        return Combinators.combine(timestamps, Arbitraries.of(availableUsers))
-            .as(Tuple::of)
-            .map(tuple -> Transformer.mutate(
-                    "verifying at " + tuple,
+    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
+        return Arbitraries.of(previousState.meetingRepository.findAll())
+            .map(meeting -> Transformer.mutate(
+                    "Verifying meeting " + meeting,
                     state -> {
-                        var ts = tuple.get1();
-                        var user = tuple.get2();
-                        assertThat(
-                            state.meetingRepository.findOverlappingMeetingsForUser(
-                                user.id(),
-                                ts
-                            ).size()
-                        ).isLessThanOrEqualTo(1);
+                        var userMeetings = state.userMeetingRepository.findAllByMeetingId(meeting.id());
+                        for (var userMeeting : userMeetings) {
+                            var userId = userMeeting.userId();
+                            assertThat(
+                                state.meetingRepository.findOverlappingMeetingsForUser(
+                                    userId,
+                                    meeting.startAt(),
+                                    meeting.endAt()
+                                ).size()
+                            ).isLessThanOrEqualTo(1);
+                        }
+
                     }
                 )
             );
@@ -162,11 +200,39 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
                 users
             ).as(Tuple::of)
             .map(tuple -> Transformer.mutate(
-                    "Inviting user-%s to meeting-".formatted(tuple.get2().name(), tuple.get1()),
+                    "Inviting user-%s to meeting-%s".formatted(tuple.get2().id(), tuple.get1()),
                     state -> {
                         var meetingId = tuple.get1();
                         var user = tuple.get2();
-                        state.meetingsService.invite(meetingId, user.id());
+                        try {
+                            state.meetingsService.invite(meetingId, user.id());
+                        } catch (MeetingNotFoundException ex) {
+                            // ignored
+                        }
+                    }
+                )
+            );
+    }
+}
+
+class AcceptInvitationAction implements Action.Dependent<MeetingState> {
+
+    @Override
+    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
+        var invitations = Arbitraries.of(previousState.userMeetingRepository.findAll());
+
+        return invitations
+            .map(invitation -> Transformer.mutate(
+                    "User-%s is accepting meeting-%s".formatted(
+                        invitation.userId(),
+                        invitation.meetingId()),
+                    state -> {
+                        try {
+                            state.meetingsService.accept(invitation.meetingId(),
+                                invitation.userId());
+                        } catch (MeetingNotFoundException ex) {
+                            // ignored
+                        }
                     }
                 )
             );
@@ -195,7 +261,7 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
             Arbitraries.strings().alpha().ofLength(5),
             Arbitraries.of(availableUsers),
             starts,
-            Arbitraries.integers().between(1, 60)
+            Arbitraries.integers().between(30, 60)
         ).as(Tuple::of);
     }
 
