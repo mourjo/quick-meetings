@@ -59,4 +59,15 @@ public interface MeetingRepository extends CrudRepository<Meeting, Long> {
         );
     }
 
+    default List<Meeting> findOverlappingMeetingsForUser(
+        @Param("userId") long userId,
+        @Param("at") OffsetDateTime at
+    ) {
+        return findOverlappingMeetingsForUser(
+            List.of(userId),
+            at,
+            at
+        );
+    }
+
 }

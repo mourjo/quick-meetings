@@ -88,17 +88,6 @@ public class OpGenTests {
     @Property
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.run();
-
-        var finalState = chain.finalState().get();
-
-//        for (var meetingId : finalState.userToMeetings.get(alice)) {
-//            var meeting = meetingRepository.findById(meetingId).get();
-//            var overlapping = meetingRepository.findOverlappingMeetingsForUser(alice.id(),
-//                meeting.startAt(), meeting.endAt());
-//            assertThat(overlapping.size()).isEqualTo(1)
-//                .withFailMessage(() -> "failed for" + meeting);
-//        }
-
     }
 
     @Provide
@@ -128,18 +117,23 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer() {
-
-        return new DefaultOffsetDateTimeArbitrary()
+        var timestamps = new DefaultOffsetDateTimeArbitrary()
             .atTheEarliest(minTime.toLocalDateTime())
-            .atTheLatest(maxTime.toLocalDateTime())
-            .map(element -> Transformer.mutate(
-                    "verifying at " + element,
-                    state -> assertThat(
-                        state.meetingRepository.findOverlappingMeetingsForUser(
-                            availableUsers.get(0).id(),
-                            element, element
-                        ).size()
-                    ).isLessThanOrEqualTo(1)
+            .atTheLatest(maxTime.toLocalDateTime());
+        return Combinators.combine(timestamps, Arbitraries.of(availableUsers))
+            .as(Tuple::of)
+            .map(tuple -> Transformer.mutate(
+                    "verifying at " + tuple,
+                    state -> {
+                        var ts = tuple.get1();
+                        var user = tuple.get2();
+                        assertThat(
+                            state.meetingRepository.findOverlappingMeetingsForUser(
+                                user.id(),
+                                ts
+                            ).size()
+                        ).isLessThanOrEqualTo(1);
+                    }
                 )
             );
     }
@@ -147,7 +141,6 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
 
 
 class CreateMeetingAction implements Action.Independent<MeetingState> {
-
 
     List<User> availableUsers;
     OffsetDateTime minTime;
@@ -174,16 +167,15 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer() {
-
         return meetingInputs()
-            .map(element -> Transformer.mutate(
-                    String.format("creating a meeting (%s)", element),
+            .map(tuple -> Transformer.mutate(
+                    String.format("creating a meeting (%s)", tuple),
                     state -> {
                         try {
-                            var name = element.get1();
-                            var user = element.get2();
-                            var from = element.get3();
-                            var durationMins = element.get4();
+                            var name = tuple.get1();
+                            var user = tuple.get2();
+                            var from = tuple.get3();
+                            var durationMins = tuple.get4();
                             var to = from.plusMinutes(durationMins);
 
                             long meetingId = state.meetingsService.createMeeting(
