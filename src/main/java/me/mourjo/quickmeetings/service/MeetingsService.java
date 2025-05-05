@@ -11,6 +11,7 @@ import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
+import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +80,16 @@ public class MeetingsService {
     public long createMeeting(String name, long userId, ZonedDateTime from, ZonedDateTime to) {
         var maybeUser = userRepository.findById(userId);
         if (maybeUser.isPresent()) {
+            var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
+                userId,
+                from.toOffsetDateTime(),
+                to.toOffsetDateTime()
+            );
+
+            if (!overlappingMeetings.isEmpty()) {
+                throw new OverlappingMeetingsException();
+            }
+
             var meeting = meetingRepository.save(
                 Meeting.builder()
                     .startAt(from.toOffsetDateTime())
