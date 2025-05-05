@@ -5,10 +5,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
@@ -74,9 +71,9 @@ public class OpGenTests {
         return new MeetingState(
             meetingsService,
             meetingRepository,
+            userService,
             userRepository,
-            userMeetingRepository,
-            userService
+            userMeetingRepository
         );
 
     }
@@ -120,6 +117,7 @@ class CheckOverlappingAction implements Action.Independent<MeetingState> {
     List<User> availableUsers;
     OffsetDateTime minTime;
     OffsetDateTime maxTime;
+
 
     public CheckOverlappingAction(List<User> availableUsers, OffsetDateTime minTime,
         OffsetDateTime maxTime) {
@@ -180,7 +178,7 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
         return meetingInputs()
             .map(element -> Transformer.mutate(
                     String.format("creating a meeting (%s)", element),
-                    meetingState -> {
+                    state -> {
                         try {
                             var name = element.get1();
                             var user = element.get2();
@@ -188,16 +186,14 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
                             var durationMins = element.get4();
                             var to = from.plusMinutes(durationMins);
 
-                            long meetingId = meetingState.meetingsService.createMeeting(
+                            long meetingId = state.meetingsService.createMeeting(
                                 name,
                                 user.id(),
                                 from,
                                 to
                             );
                             assertThat(meetingId).isGreaterThan(0);
-                            meetingState.userToMeetings.putIfAbsent(user, new ArrayList<>());
-                            meetingState.userToMeetings.get(user).add(meetingId);
-                            assertThat(meetingState.userToMeetings.size()).isLessThanOrEqualTo(3);
+
                         } catch (OverlappingMeetingsException ex) {
                             // ignore
                         }
@@ -209,23 +205,20 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
 
 class MeetingState {
 
-    public Map<User, List<Long>> userToMeetings;
-
-    public MeetingsService meetingsService;
-    public MeetingRepository meetingRepository;
-    public UserRepository userRepository;
-    public UserMeetingRepository userMeetingRepository;
-    public UserService userService;
-
+    MeetingsService meetingsService;
+    MeetingRepository meetingRepository;
+    UserRepository userRepository;
+    UserMeetingRepository userMeetingRepository;
+    UserService userService;
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
-        UserRepository userRepository, UserMeetingRepository userMeetingRepository,
-        UserService userService) {
+        UserService userService, UserRepository userRepository,
+        UserMeetingRepository userMeetingRepository) {
         this.meetingsService = meetingsService;
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
         this.userService = userService;
-        this.userToMeetings = new HashMap<>();
     }
+
 }
