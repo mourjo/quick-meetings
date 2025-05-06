@@ -81,14 +81,6 @@ public class OpGenTests {
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
 
-        // todo remove this initial seed - test for invitations separately
-        var preTestMeeting = meetingsService.createMeeting(
-            "Pre-test",
-            bob.id(),
-            LOWER_BOUND_TS.plusMinutes(10),
-            LOWER_BOUND_TS.plusMinutes(15)
-        );
-
         var state = new MeetingState(
             meetingsService,
             meetingRepository,
@@ -96,9 +88,14 @@ public class OpGenTests {
             userRepository,
             userMeetingRepository
         );
-        state.refresh();
 
-        state.recordCreation(bob, meetingRepository.findById(preTestMeeting.id()).get());
+        // todo remove this initial seed - test for invitations separately
+        state.recordCreation(
+            "Pre-test",
+            bob,
+            LOWER_BOUND_TS.plusMinutes(10),
+            LOWER_BOUND_TS.plusMinutes(15)
+        );
 
         return state;
 
@@ -172,7 +169,6 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
                         var meetingId = tuple.get1();
                         var user = tuple.get2();
                         try {
-                            state.meetingsService.invite(meetingId, user.id());
                             state.recordInvitation(user, meetingId);
                         } catch (MeetingNotFoundException | OverlappingMeetingsException ex) {
                             // ignored
@@ -197,9 +193,7 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
                         invitation.meetingId()),
                     state -> {
                         try {
-                            state.meetingsService.accept(invitation.meetingId(),
-                                invitation.userId());
-                            state.recordAcceptance(invitation.userId(), invitation.meetingId());
+                            state.recordAcceptance(invitation);
                         } catch (MeetingNotFoundException ex) {
                             // ignored
                         }
@@ -248,17 +242,7 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
                             var from = tuple.get3();
                             var durationMins = tuple.get4();
                             var to = from.plusMinutes(durationMins);
-
-                            var meeting = state.meetingsService.createMeeting(
-                                name,
-                                user.id(),
-                                from,
-                                to
-                            );
-
-                            state.recordCreation(user, meeting);
-                            assertThat(meeting.id()).isGreaterThan(0);
-
+                            state.recordCreation(name, user, from, to);
                         } catch (OverlappingMeetingsException ex) {
                             // ignore
                         }
@@ -270,17 +254,17 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
 
 class MeetingState {
 
-    MeetingsService meetingsService;
-    MeetingRepository meetingRepository;
-    UserRepository userRepository;
-    UserMeetingRepository userMeetingRepository;
-    UserService userService;
-    Map<User, List<Meeting>> ownersToMeetings;
-    Map<User, Set<Long>> invitedToMeetings;
-    Map<User, Set<Long>> acceptedToMeetings;
-    List<User> users;
-    List<UserMeeting> userMeetings;
-    List<Meeting> allMeetings;
+    private final MeetingsService meetingsService;
+    private final MeetingRepository meetingRepository;
+    private final UserRepository userRepository;
+    private final UserMeetingRepository userMeetingRepository;
+    private final UserService userService;
+    private final Map<User, List<Meeting>> ownersToMeetings;
+    private final Map<User, Set<Long>> invitedToMeetings;
+    private final Map<User, Set<Long>> acceptedToMeetings;
+    private final List<User> users;
+    private List<UserMeeting> userMeetings;
+    private List<Meeting> allMeetings;
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
@@ -293,17 +277,35 @@ class MeetingState {
         ownersToMeetings = new HashMap<>();
         invitedToMeetings = new HashMap<>();
         acceptedToMeetings = new HashMap<>();
+
+        users = userRepository.findAll();
+        for (User u : users) {
+            ownersToMeetings.putIfAbsent(u, new ArrayList<>());
+            invitedToMeetings.putIfAbsent(u, new HashSet<>());
+            acceptedToMeetings.putIfAbsent(u, new HashSet<>());
+        }
+
     }
 
-    void recordCreation(User user, Meeting meeting) {
+    void recordCreation(String name, User user, OffsetDateTime from, OffsetDateTime to) {
+        var meeting = meetingsService.createMeeting(
+            name,
+            user.id(),
+            from,
+            to
+        );
         ownersToMeetings.get(user).add(meeting);
     }
 
     void recordInvitation(User user, long meetingId) {
+        meetingsService.invite(meetingId, user.id());
         invitedToMeetings.get(user).add(meetingId);
     }
 
-    void recordAcceptance(long userId, long meetingId) {
+    void recordAcceptance(UserMeeting userMeeting) {
+        var userId = userMeeting.userId();
+        var meetingId = userMeeting.meetingId();
+        meetingsService.accept(meetingId, userId);
         var user = users.stream().filter(u -> u.id() == userId).findFirst().get();
         invitedToMeetings.get(user).remove(meetingId);
         acceptedToMeetings.get(user).add(meetingId);
@@ -344,14 +346,7 @@ class MeetingState {
 
 
     void refresh() {
-        if (users == null) {
-            users = userRepository.findAll();
-            for (User u : users) {
-                ownersToMeetings.putIfAbsent(u, new ArrayList<>());
-                invitedToMeetings.putIfAbsent(u, new HashSet<>());
-                acceptedToMeetings.putIfAbsent(u, new HashSet<>());
-            }
-        }
+
         userMeetings = new ArrayList<>();
         userMeetings = userMeetingRepository.findAll();
         allMeetings = new ArrayList<>();
