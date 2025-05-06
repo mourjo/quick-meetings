@@ -7,11 +7,13 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
@@ -268,6 +270,8 @@ class MeetingState {
     private final List<User> users;
 
 
+    private final Set<UserMeeting> userMeetings;
+
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
         UserMeetingRepository userMeetingRepository, List<User> users) {
@@ -287,6 +291,16 @@ class MeetingState {
             acceptedToMeetings.put(user, new HashSet<>());
         });
 
+        userMeetings = new TreeSet<>(new Comparator<UserMeeting>() {
+            @Override
+            public int compare(UserMeeting o1, UserMeeting o2) {
+                if (o1.meetingId() == o2.meetingId()) {
+                    
+                    return Long.compare(o1.userId(), o2.userId());
+                }
+                return Long.compare(o1.meetingId(), o2.meetingId());
+            }
+        });
     }
 
     void recordCreation(String name, User user, OffsetDateTime from, OffsetDateTime to) {
@@ -297,11 +311,23 @@ class MeetingState {
             to
         );
         ownersToMeetings.get(user).add(meeting);
+        userMeetings.add(UserMeeting.builder()
+            .userId(user.id())
+            .meetingId(meeting.id())
+            .userRole(RoleOfUser.OWNER)
+            .build()
+        );
     }
 
     void recordInvitation(User user, long meetingId) {
         meetingsService.invite(meetingId, user.id());
         invitedToMeetings.get(user).add(meetingId);
+        userMeetings.add(UserMeeting.builder()
+            .userId(user.id())
+            .meetingId(meetingId)
+            .userRole(RoleOfUser.INVITED)
+            .build()
+        );
     }
 
     void recordAcceptance(UserMeeting userMeeting) {
@@ -311,6 +337,13 @@ class MeetingState {
         var user = users.stream().filter(u -> u.id() == userId).findFirst().get();
         invitedToMeetings.get(user).remove(meetingId);
         acceptedToMeetings.get(user).add(meetingId);
+
+        userMeetings.add(UserMeeting.builder()
+            .userId(user.id())
+            .meetingId(meetingId)
+            .userRole(RoleOfUser.ACCEPTED)
+            .build()
+        );
     }
 
     List<User> getAvailableUsers() {
@@ -329,48 +362,8 @@ class MeetingState {
             .flatMap(Collection::stream).toList();
     }
 
-    List<UserMeeting> findAllUserMeetings() {
-        var result = new ArrayList<UserMeeting>();
-        for (var user : ownersToMeetings.keySet()) {
-            var userId = user.id();
-            for (var meeting : ownersToMeetings.get(user)) {
-                result.add(
-                    UserMeeting.builder()
-                        .userId(userId)
-                        .meetingId(meeting.id())
-                        .userRole(RoleOfUser.OWNER)
-                        .build()
-                );
-            }
-        }
-
-        for (var user : invitedToMeetings.keySet()) {
-            var userId = user.id();
-            for (var meetingId : invitedToMeetings.get(user)) {
-                result.add(
-                    UserMeeting.builder()
-                        .userId(userId)
-                        .meetingId(meetingId)
-                        .userRole(RoleOfUser.INVITED)
-                        .build()
-                );
-            }
-        }
-
-        for (var user : acceptedToMeetings.keySet()) {
-            var userId = user.id();
-            for (var meetingId : acceptedToMeetings.get(user)) {
-                result.add(
-                    UserMeeting.builder()
-                        .userId(userId)
-                        .meetingId(meetingId)
-                        .userRole(RoleOfUser.ACCEPTED)
-                        .build()
-                );
-            }
-        }
-
-        return result;
+    Set<UserMeeting> findAllUserMeetings() {
+        return userMeetings;
     }
 
     Meeting findMeetingById(long needle) {
