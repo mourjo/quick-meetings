@@ -30,7 +30,6 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -118,7 +117,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property(shrinking = ShrinkingMode.FULL)
+    @Property
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
@@ -146,7 +145,7 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
-//            .withAction(new AcceptInvitationAction())
+            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction());
     }
 }
@@ -285,7 +284,6 @@ class MeetingState {
             @Override
             public int compare(UserMeeting o1, UserMeeting o2) {
                 if (o1.meetingId() == o2.meetingId()) {
-
                     return Long.compare(o1.userId(), o2.userId());
                 }
                 return Long.compare(o1.meetingId(), o2.meetingId());
@@ -314,26 +312,21 @@ class MeetingState {
 
     void recordInvitation(User user, long meetingId) {
         meetingsService.invite(meetingId, user.id());
-        userMeetings.add(UserMeeting.builder()
+        var userMeeting = UserMeeting.builder()
             .userId(user.id())
             .meetingId(meetingId)
             .userRole(RoleOfUser.INVITED)
-            .build()
-        );
+            .build();
+        userMeetings.remove(userMeeting); // duplicates in Treeset are ignored
+        userMeetings.add(userMeeting);
     }
 
     void recordAcceptance(UserMeeting userMeeting) {
         var userId = userMeeting.userId();
         var meetingId = userMeeting.meetingId();
         meetingsService.accept(meetingId, userId);
-        var user = users.stream().filter(u -> u.id() == userId).findFirst().get();
-
-        userMeetings.add(UserMeeting.builder()
-            .userId(user.id())
-            .meetingId(meetingId)
-            .userRole(RoleOfUser.ACCEPTED)
-            .build()
-        );
+        userMeetings.remove(userMeeting); // duplicates in Treeset are ignored
+        userMeetings.add(userMeeting);
     }
 
     List<User> getAvailableUsers() {
