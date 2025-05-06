@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,6 +30,7 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -116,7 +118,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property
+    @Property(shrinking = ShrinkingMode.FULL)
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
@@ -134,7 +136,7 @@ public class OpGenTests {
                             userMeeting.userId(),
                             meeting.startAt(),
                             meeting.endAt()
-                        ).size()
+                        ).stream().map(m -> m.id()).collect(Collectors.toSet()).size()
                     ).isEqualTo(1);
                 });
         }).run();
@@ -264,8 +266,7 @@ class MeetingState {
     private final Map<User, Set<Long>> invitedToMeetings;
     private final Map<User, Set<Long>> acceptedToMeetings;
     private final List<User> users;
-    private List<UserMeeting> userMeetings;
-    private List<Meeting> allMeetings;
+
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
@@ -323,21 +324,66 @@ class MeetingState {
     }
 
 
+    List<Meeting> getAllMeetings() {
+        return ownersToMeetings.values().stream()
+            .flatMap(Collection::stream).toList();
+    }
+
     List<UserMeeting> findAllUserMeetings() {
-        return userMeetings;
+        var result = new ArrayList<UserMeeting>();
+        for (var user : ownersToMeetings.keySet()) {
+            var userId = user.id();
+            for (var meeting : ownersToMeetings.get(user)) {
+                result.add(
+                    UserMeeting.builder()
+                        .userId(userId)
+                        .meetingId(meeting.id())
+                        .userRole(RoleOfUser.OWNER)
+                        .build()
+                );
+            }
+        }
+
+        for (var user : invitedToMeetings.keySet()) {
+            var userId = user.id();
+            for (var meetingId : invitedToMeetings.get(user)) {
+                result.add(
+                    UserMeeting.builder()
+                        .userId(userId)
+                        .meetingId(meetingId)
+                        .userRole(RoleOfUser.INVITED)
+                        .build()
+                );
+            }
+        }
+
+        for (var user : acceptedToMeetings.keySet()) {
+            var userId = user.id();
+            for (var meetingId : acceptedToMeetings.get(user)) {
+                result.add(
+                    UserMeeting.builder()
+                        .userId(userId)
+                        .meetingId(meetingId)
+                        .userRole(RoleOfUser.ACCEPTED)
+                        .build()
+                );
+            }
+        }
+
+        return result;
     }
 
     Meeting findMeetingById(long needle) {
-        return allMeetings.stream().filter(m -> m.id() == needle).findFirst().get();
+        return getAllMeetings().stream().filter(m -> m.id() == needle).findFirst().get();
     }
 
     List<Meeting> overlappingMeetingForUser(long userId, OffsetDateTime from, OffsetDateTime to) {
-        Set<Long> engagements = userMeetings.stream().filter(
+        Set<Long> engagements = findAllUserMeetings().stream().filter(
             um -> um.userId() == userId
                 && (um.userRole() == RoleOfUser.OWNER || um.userRole() == RoleOfUser.ACCEPTED)
         ).map(m -> m.meetingId()).collect(Collectors.toSet());
 
-        return allMeetings.stream().filter(meeting -> engagements.contains(meeting.id())
+        return getAllMeetings().stream().filter(meeting -> engagements.contains(meeting.id())
             && (
             (meeting.startAt().isAfter(from) || meeting.startAt().equals(from)) &&
                 (meeting.endAt().isBefore(to) || meeting.endAt().equals(to))
@@ -348,10 +394,6 @@ class MeetingState {
 
     void refresh() {
 
-        userMeetings = new ArrayList<>();
-        userMeetings = userMeetingRepository.findAll();
-        allMeetings = new ArrayList<>();
-        allMeetings = meetingRepository.findAll();
     }
 
 }
