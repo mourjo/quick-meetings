@@ -3,6 +3,7 @@ package me.mourjo.quickmeetings.web;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.web.dto.MeetingCreationRequest;
@@ -30,12 +31,13 @@ public class MeetingsController {
     @PostMapping("/meeting/invite")
     ResponseEntity<MeetingInviteCreationResponse> invite(
         @RequestBody MeetingInviteCreationRequest request) {
-        if (meetingsService.invite(request.meetingId(), request.invitees())) {
+        try {
+            meetingsService.invite(request.meetingId(), request.invitees());
             return ResponseEntity.ok(new MeetingInviteCreationResponse("Invited successfully"));
+        } catch (OverlappingMeetingsException ex) {
+            return ResponseEntity.status(400)
+                .body(new MeetingInviteCreationResponse("Users have conflicts"));
         }
-
-        return ResponseEntity.status(400)
-            .body(new MeetingInviteCreationResponse("Users have conflicts"));
     }
 
     @PostMapping("/meeting")
@@ -50,7 +52,7 @@ public class MeetingsController {
         var toLdt = LocalDateTime.of(to.date(), to.time());
         var toZdt = ZonedDateTime.of(toLdt, ZoneId.of(request.timezone()));
 
-        var meetingId = meetingsService.createMeeting(
+        var meeting = meetingsService.createMeeting(
             request.name(),
             request.userId(),
             fromZdt,
@@ -62,7 +64,7 @@ public class MeetingsController {
         return ResponseEntity.ok(new MeetingCreationResponse(
             "Meeting created by %s from %s to %s".formatted(userName, fromZdt, toZdt),
             request.name(),
-            meetingId
+            meeting.id()
         ));
     }
 

@@ -16,25 +16,25 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
     @SneakyThrows
     @Test
     void inviteTest() {
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             now,
             now.plusMinutes(30)
         );
 
-        meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
+        meetingsService.invite(aliceMeeting.id(), List.of(bob.id(), charlie.id()));
 
         assertSuccess(
             RequestUtils.inviteAcceptanceRequest(
-                aliceMeetingId,
+                aliceMeeting.id(),
                 bob.id()
             )
         );
 
         assertFailure(
             RequestUtils.inviteAcceptanceRequest(
-                aliceMeetingId,
+                aliceMeeting.id(),
                 dick.id()
             )
         );
@@ -48,7 +48,7 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
 
         assertFailure(
             RequestUtils.inviteAcceptanceRequest(
-                aliceMeetingId,
+                aliceMeeting.id(),
                 alice.id()
             )
         );

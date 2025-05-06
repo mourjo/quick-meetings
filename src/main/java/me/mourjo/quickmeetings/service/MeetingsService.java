@@ -2,6 +2,7 @@ package me.mourjo.quickmeetings.service;
 
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import me.mourjo.quickmeetings.db.Meeting;
@@ -35,11 +36,11 @@ public class MeetingsService {
         this.userMeetingRepository = userMeetingRepository;
     }
 
-    public boolean invite(long meetingId, long userId) {
+    public List<UserMeeting> invite(long meetingId, long userId) {
         return invite(meetingId, List.of(userId));
     }
 
-    public boolean invite(long meetingId, List<Long> users) {
+    public List<UserMeeting> invite(long meetingId, List<Long> users) {
         var meeting = meetingRepository.findById(meetingId)
             .orElseThrow(() -> new MeetingNotFoundException(meetingId));
 
@@ -60,13 +61,15 @@ public class MeetingsService {
         );
 
         if (!overlappingMeetings.isEmpty()) {
-            return false;
+            throw new OverlappingMeetingsException();
         }
 
         var existingAttendees = userMeetingRepository.meetingAttendees(List.of(meetingId))
             .stream()
             .map(UserMeeting::userId)
             .collect(Collectors.toSet());
+
+        List<UserMeeting> createdUserMeetings = new ArrayList<>();
 
         for (var userId : users) {
             if (!existingAttendees.contains(userId)) {
@@ -75,18 +78,18 @@ public class MeetingsService {
                     .userId(userId)
                     .userRole(RoleOfUser.INVITED)
                     .build();
-                userMeetingRepository.save(invite);
+                createdUserMeetings.add(userMeetingRepository.save(invite));
             }
         }
 
-        return true;
+        return createdUserMeetings;
     }
 
-    public long createMeeting(String name, long userId, ZonedDateTime from, ZonedDateTime to) {
+    public Meeting createMeeting(String name, long userId, ZonedDateTime from, ZonedDateTime to) {
         return createMeeting(name, userId, from.toOffsetDateTime(), to.toOffsetDateTime());
     }
 
-    public long createMeeting(String name, long userId, OffsetDateTime from, OffsetDateTime to) {
+    public Meeting createMeeting(String name, long userId, OffsetDateTime from, OffsetDateTime to) {
         var maybeUser = userRepository.findById(userId);
         if (maybeUser.isPresent()) {
             var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(
@@ -113,7 +116,7 @@ public class MeetingsService {
                     .meetingId(meeting.id())
                     .build()
             );
-            return meeting.id();
+            return meeting;
         }
 
         throw new UserNotFoundException(userId);

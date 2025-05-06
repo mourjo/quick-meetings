@@ -89,7 +89,7 @@ public class MeetingCreationGenTests {
             anyLong(),
             fromCap.capture(),
             toCap.capture()
-        )).thenReturn(100L);
+        )).thenReturn(any());
 
         Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
 

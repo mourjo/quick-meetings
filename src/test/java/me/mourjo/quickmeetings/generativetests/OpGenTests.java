@@ -82,7 +82,7 @@ public class OpGenTests {
         meetingRepository.deleteAll();
 
         // todo remove this initial seed - test for invitations separately
-        var preTestMeetingId = meetingsService.createMeeting(
+        var preTestMeeting = meetingsService.createMeeting(
             "Pre-test",
             bob.id(),
             LOWER_BOUND_TS.plusMinutes(10),
@@ -98,7 +98,7 @@ public class OpGenTests {
         );
         state.refresh();
 
-        state.recordCreation(bob, meetingRepository.findById(preTestMeetingId).get());
+        state.recordCreation(bob, meetingRepository.findById(preTestMeeting.id()).get());
 
         return state;
 
@@ -174,7 +174,7 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
                         try {
                             state.meetingsService.invite(meetingId, user.id());
                             state.recordInvitation(user, meetingId);
-                        } catch (MeetingNotFoundException ex) {
+                        } catch (MeetingNotFoundException | OverlappingMeetingsException ex) {
                             // ignored
                         }
                     }
@@ -249,17 +249,15 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
                             var durationMins = tuple.get4();
                             var to = from.plusMinutes(durationMins);
 
-                            long meetingId = state.meetingsService.createMeeting(
+                            var meeting = state.meetingsService.createMeeting(
                                 name,
                                 user.id(),
                                 from,
                                 to
                             );
 
-                            var meeting = state.meetingRepository.findById(meetingId).get();
-
                             state.recordCreation(user, meeting);
-                            assertThat(meetingId).isGreaterThan(0);
+                            assertThat(meeting.id()).isGreaterThan(0);
 
                         } catch (OverlappingMeetingsException ex) {
                             // ignore
@@ -324,10 +322,6 @@ class MeetingState {
 
     List<UserMeeting> findAllUserMeetings() {
         return userMeetings;
-    }
-
-    List<Meeting> findAllMeetings() {
-        return allMeetings;
     }
 
     Meeting findMeetingById(long needle) {

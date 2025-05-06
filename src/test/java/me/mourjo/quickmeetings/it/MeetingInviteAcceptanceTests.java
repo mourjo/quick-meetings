@@ -82,6 +82,6 @@ public class MeetingInviteAcceptanceTests extends BaseIT {
             alice.id(),
             now,
             now.plusMinutes(30)
-        );
+        ).id();
     }
 }

@@ -15,7 +15,7 @@ public class MeetingCreationTests extends BaseIT {
 
     @Test
     void creationWithRole() {
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             now,
@@ -31,7 +31,7 @@ public class MeetingCreationTests extends BaseIT {
 
         for (var um : userMeetingRepository.findAll()) {
             assertThat(um.userId()).isEqualTo(alice.id());
-            assertThat(um.meetingId()).isEqualTo(aliceMeetingId);
+            assertThat(um.meetingId()).isEqualTo(aliceMeeting.id());
             assertThat(um.userRole()).isEqualTo(OWNER);
         }
     }
@@ -83,8 +83,8 @@ public class MeetingCreationTests extends BaseIT {
             now.plusMinutes(60)
         );
 
-        meetingsService.invite(aliceMeeting, bob.id());
-        meetingsService.accept(aliceMeeting, bob.id());
+        meetingsService.invite(aliceMeeting.id(), bob.id());
+        meetingsService.accept(aliceMeeting.id(), bob.id());
 
         assertThatExceptionOfType(OverlappingMeetingsException.class).isThrownBy(
             () -> meetingsService.createMeeting(
@@ -105,7 +105,7 @@ public class MeetingCreationTests extends BaseIT {
             now.plusMinutes(60)
         );
 
-        meetingsService.invite(aliceMeeting, bob.id());
+        meetingsService.invite(aliceMeeting.id(), bob.id());
 
         assertThatNoException().isThrownBy(
             () -> meetingsService.createMeeting(

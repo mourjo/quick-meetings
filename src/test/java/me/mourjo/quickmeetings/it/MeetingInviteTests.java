@@ -7,6 +7,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.util.List;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
+import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ public class MeetingInviteTests extends BaseIT {
 
     @Test
     void inviteNonExistentUsersToMeeting() {
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             now,
@@ -36,12 +37,13 @@ public class MeetingInviteTests extends BaseIT {
 
         assertThatExceptionOfType(UserNotFoundException.class)
             .isThrownBy(
-                () -> meetingsService.invite(aliceMeetingId, List.of(98L))
+                () -> meetingsService.invite(aliceMeeting.id(), List.of(98L))
             ).withMessageContaining("Users [98] not found");
 
         assertThatExceptionOfType(UserNotFoundException.class)
             .isThrownBy(
-                () -> meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id(), 99L))
+                () -> meetingsService.invite(aliceMeeting.id(),
+                    List.of(bob.id(), charlie.id(), 99L))
             ).withMessageContaining("Users [99] not found");
     }
 
@@ -49,34 +51,34 @@ public class MeetingInviteTests extends BaseIT {
     void overlappingMeetingInvites() {
         var aliceMeetingStart = now;
         var aliceMeetingEnd = now.plusMinutes(60);
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             aliceMeetingStart,
             aliceMeetingEnd
         );
 
-        meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
+        meetingsService.invite(aliceMeeting.id(), List.of(bob.id(), charlie.id()));
 
-        var bobMeetingId = meetingsService.createMeeting(
+        var bobMeeting = meetingsService.createMeeting(
             "Bob's meeting",
             bob.id(),
             aliceMeetingStart.plusMinutes(10),
             aliceMeetingEnd.plusMinutes(10)
         );
 
-        var invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(charlie.id()));
-        assertThat(invitedSuccessfully).isTrue();
+        var invitations = meetingsService.invite(bobMeeting.id(), List.of(charlie.id()));
+        assertThat(invitations.size()).isGreaterThan(0);
 
-        meetingsService.accept(bobMeetingId, charlie.id());
-        var dickMeetingId = meetingsService.createMeeting(
+        meetingsService.accept(bobMeeting.id(), charlie.id());
+        var dickMeeting = meetingsService.createMeeting(
             "Dick's meeting",
             dick.id(),
             aliceMeetingStart.plusMinutes(20),
             aliceMeetingEnd.plusMinutes(20)
         );
-        invitedSuccessfully = meetingsService.invite(dickMeetingId, List.of(charlie.id()));
-        assertThat(invitedSuccessfully).isFalse();
+        assertThatExceptionOfType(OverlappingMeetingsException.class)
+            .isThrownBy(() -> meetingsService.invite(dickMeeting.id(), List.of(charlie.id())));
 
         meetingsService.createMeeting(
             "Erin's meeting",
@@ -84,16 +86,18 @@ public class MeetingInviteTests extends BaseIT {
             aliceMeetingStart,
             aliceMeetingEnd.minusMinutes(30)
         );
-        invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(frank.id()));
-        assertThat(invitedSuccessfully).isTrue();
-        invitedSuccessfully = meetingsService.invite(bobMeetingId, List.of(alice.id()));
-        assertThat(invitedSuccessfully).isFalse();
+        invitations = meetingsService.invite(bobMeeting.id(), List.of(frank.id()));
+        assertThat(invitations.size()).isGreaterThan(0);
+
+        assertThatExceptionOfType(OverlappingMeetingsException.class)
+            .isThrownBy(() -> meetingsService.invite(bobMeeting.id(), List.of(alice.id())));
+
     }
 
 
     @Test
     void inviteUsersToMeeting() {
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             now,
@@ -102,41 +106,42 @@ public class MeetingInviteTests extends BaseIT {
 
         assertThat(userMeetingRepository.count()).isEqualTo(1);
 
-        var invitedSuccessfully = meetingsService.invite(
-            aliceMeetingId,
+        var invitations = meetingsService.invite(
+            aliceMeeting.id(),
             List.of(bob.id(), charlie.id())
         );
-        assertThat(invitedSuccessfully).isTrue();
+        assertThat(invitations.size()).isGreaterThan(0);
 
-        meetingsService.invite(aliceMeetingId, List.of(bob.id(), charlie.id()));
-        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
-        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(3);
+        meetingsService.invite(aliceMeeting.id(), List.of(bob.id(), charlie.id()));
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), charlie.id(), INVITED);
+        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeeting.id()).size()).isEqualTo(3);
 
-        meetingsService.invite(aliceMeetingId, List.of(charlie.id()));
-        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
-        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(3);
+        meetingsService.invite(aliceMeeting.id(), List.of(charlie.id()));
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), charlie.id(), INVITED);
+        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeeting.id()).size()).isEqualTo(3);
 
-        meetingsService.invite(aliceMeetingId, List.of(dick.id()));
-        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
-        meetingUtils.validateMeetingRole(aliceMeetingId, bob.id(), INVITED);
-        meetingUtils.validateMeetingRole(aliceMeetingId, charlie.id(), INVITED);
-        meetingUtils.validateMeetingRole(aliceMeetingId, dick.id(), INVITED);
-        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeetingId).size()).isEqualTo(4);
+        meetingsService.invite(aliceMeeting.id(), List.of(dick.id()));
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), alice.id(), OWNER);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), bob.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), charlie.id(), INVITED);
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), dick.id(), INVITED);
+        assertThat(userMeetingRepository.findAllByMeetingId(aliceMeeting.id()).size()).isEqualTo(4);
     }
 
     @Test
     void inviteSelfToMeeting() {
-        var aliceMeetingId = meetingsService.createMeeting(
+        var aliceMeeting = meetingsService.createMeeting(
             "Alice's meeting",
             alice.id(),
             now,
             now.plusMinutes(60)
         );
-        assertThat(meetingsService.invite(aliceMeetingId, List.of(alice.id()))).isFalse();
-        meetingUtils.validateMeetingRole(aliceMeetingId, alice.id(), OWNER);
+        assertThatExceptionOfType(OverlappingMeetingsException.class)
+            .isThrownBy(() -> meetingsService.invite(aliceMeeting.id(), List.of(alice.id())));
+        meetingUtils.validateMeetingRole(aliceMeeting.id(), alice.id(), OWNER);
     }
 }
