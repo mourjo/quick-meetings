@@ -86,7 +86,8 @@ public class OpGenTests {
             meetingRepository,
             userService,
             userRepository,
-            userMeetingRepository
+            userMeetingRepository,
+            List.of(alice, bob, charlie)
         );
 
         // todo remove this initial seed - test for invitations separately
@@ -268,22 +269,22 @@ class MeetingState {
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
-        UserMeetingRepository userMeetingRepository) {
+        UserMeetingRepository userMeetingRepository, List<User> users) {
         this.meetingsService = meetingsService;
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
         this.userService = userService;
-        ownersToMeetings = new HashMap<>();
-        invitedToMeetings = new HashMap<>();
-        acceptedToMeetings = new HashMap<>();
+        this.ownersToMeetings = new HashMap<>();
+        this.invitedToMeetings = new HashMap<>();
+        this.acceptedToMeetings = new HashMap<>();
 
-        users = userRepository.findAll();
-        for (User u : users) {
-            ownersToMeetings.putIfAbsent(u, new ArrayList<>());
-            invitedToMeetings.putIfAbsent(u, new HashSet<>());
-            acceptedToMeetings.putIfAbsent(u, new HashSet<>());
-        }
+        this.users = users;
+        users.forEach(user -> {
+            ownersToMeetings.put(user, new ArrayList<>());
+            invitedToMeetings.put(user, new HashSet<>());
+            acceptedToMeetings.put(user, new HashSet<>());
+        });
 
     }
 
