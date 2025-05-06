@@ -29,6 +29,7 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -118,7 +119,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property
+    @Property(shrinking = ShrinkingMode.FULL)
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
@@ -138,67 +139,16 @@ public class OpGenTests {
                             meeting.endAt()
                         ).size()
                     ).isEqualTo(1);
-
-//                    assertThat(
-//                        state.meetingRepository.findOverlappingMeetingsForUser(
-//                            userMeeting.userId(),
-//                            meeting.startAt(),
-//                            meeting.endAt()
-//                        ).size()
-//                    ).isEqualTo(1);
                 });
-
-
         }).run();
     }
 
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
-            .withAction(new CreateMeetingAction(LOWER_BOUND_TS,
-                UPPER_BOUND_TS))
-//            .withAction(new AcceptInvitationAction())
-            .withAction(new CreateInvitationAction())
-
-            ;
-    }
-
-}
-
-class CheckOverlappingAction implements Action.Dependent<MeetingState> {
-
-    List<User> availableUsers;
-    OffsetDateTime minTime;
-    OffsetDateTime maxTime;
-
-    public CheckOverlappingAction(List<User> availableUsers, OffsetDateTime minTime,
-        OffsetDateTime maxTime) {
-        this.availableUsers = availableUsers;
-        this.minTime = minTime;
-        this.maxTime = maxTime;
-    }
-
-    @Override
-    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        return Arbitraries.of(previousState.meetingRepository.findAll())
-            .map(meeting -> Transformer.mutate(
-                    "Verifying meeting " + meeting,
-                    state -> {
-                        var userMeetings = state.userMeetingRepository.findAllByMeetingId(meeting.id());
-                        for (var userMeeting : userMeetings) {
-                            var userId = userMeeting.userId();
-                            assertThat(
-                                state.meetingRepository.findOverlappingMeetingsForUser(
-                                    userId,
-                                    meeting.startAt(),
-                                    meeting.endAt()
-                                ).size()
-                            ).isLessThanOrEqualTo(1);
-                        }
-
-                    }
-                )
-            );
+            .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
+            .withAction(new AcceptInvitationAction())
+            .withAction(new CreateInvitationAction());
     }
 }
 
