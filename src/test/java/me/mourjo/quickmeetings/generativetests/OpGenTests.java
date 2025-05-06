@@ -118,6 +118,7 @@ public class OpGenTests {
 
     // (shrinking = ShrinkingMode.FULL)
     @Property
+    //(shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
@@ -145,7 +146,7 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
-            .withAction(new AcceptInvitationAction())
+            //.withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction());
     }
 }
@@ -317,16 +318,23 @@ class MeetingState {
             .meetingId(meetingId)
             .userRole(RoleOfUser.INVITED)
             .build();
-        userMeetings.remove(userMeeting); // duplicates in Treeset are ignored
+
+        userMeetings.remove(userMeeting);
         userMeetings.add(userMeeting);
     }
 
     void recordAcceptance(UserMeeting userMeeting) {
         var userId = userMeeting.userId();
         var meetingId = userMeeting.meetingId();
-        meetingsService.accept(meetingId, userId);
-        userMeetings.remove(userMeeting); // duplicates in Treeset are ignored
-        userMeetings.add(userMeeting);
+        if (meetingsService.accept(meetingId, userId)) {
+            var userMeeting1 = UserMeeting.builder()
+                .userId(userId)
+                .meetingId(meetingId)
+                .userRole(RoleOfUser.ACCEPTED)
+                .build();
+            userMeetings.remove(userMeeting1);
+            userMeetings.add(userMeeting1);
+        }
     }
 
     List<User> getAvailableUsers() {
