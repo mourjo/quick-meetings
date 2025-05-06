@@ -5,12 +5,16 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.db.UserMeeting;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
@@ -77,19 +81,25 @@ public class OpGenTests {
         meetingRepository.deleteAll();
 
         // todo remove this initial seed - test for invitations separately
-        meetingsService.createMeeting(
+        var preTestMeetingId = meetingsService.createMeeting(
             "Pre-test",
             bob.id(),
             LOWER_BOUND_TS.plusMinutes(10),
             LOWER_BOUND_TS.plusMinutes(15)
         );
-        return new MeetingState(
+
+        var state = new MeetingState(
             meetingsService,
             meetingRepository,
             userService,
             userRepository,
             userMeetingRepository
         );
+        state.refresh();
+
+        state.recordCreation(bob, meetingRepository.findById(preTestMeetingId).get());
+
+        return state;
 
     }
 
@@ -110,14 +120,15 @@ public class OpGenTests {
     @Property
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
-
-            state.userMeetingRepository.findAll()
+            state.refresh();
+            state.findAllUserMeetings()
                 .parallelStream()
                 .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER
                     || userMeeting.userRole() == RoleOfUser.ACCEPTED)
                 .forEach(userMeeting -> {
 
-                    var meeting = state.meetingRepository.findById(userMeeting.meetingId()).get();
+                    var meeting = state.findMeetingById(userMeeting.meetingId());
+
                     assertThat(
                         state.meetingRepository.findOverlappingMeetingsForUser(
                             userMeeting.userId(),
@@ -126,6 +137,8 @@ public class OpGenTests {
                         ).size()
                     ).isEqualTo(1);
                 });
+
+
         }).run();
     }
 
@@ -185,9 +198,9 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
         Arbitrary<Long> meetingIds = Arbitraries.of(
-            previousState.meetingRepository.findAll().stream().map(Meeting::id).toList());
+            previousState.getAllMeetingIds());
         Arbitrary<User> users = Arbitraries.of(
-            previousState.userRepository.findAll()
+            previousState.getAvailableUsers()
         );
 
         return Combinators.combine(
@@ -201,6 +214,7 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
                         var user = tuple.get2();
                         try {
                             state.meetingsService.invite(meetingId, user.id());
+                            state.recordInvitation(user, meetingId);
                         } catch (MeetingNotFoundException ex) {
                             // ignored
                         }
@@ -225,6 +239,7 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
                         try {
                             state.meetingsService.accept(invitation.meetingId(),
                                 invitation.userId());
+                            state.recordAcceptance(invitation.userId(), invitation.meetingId());
                         } catch (MeetingNotFoundException ex) {
                             // ignored
                         }
@@ -280,6 +295,10 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
                                 from,
                                 to
                             );
+
+                            var meeting = state.meetingRepository.findById(meetingId).get();
+
+                            state.recordCreation(user, meeting);
                             assertThat(meetingId).isGreaterThan(0);
 
                         } catch (OverlappingMeetingsException ex) {
@@ -298,7 +317,12 @@ class MeetingState {
     UserRepository userRepository;
     UserMeetingRepository userMeetingRepository;
     UserService userService;
-    Map<User, List<Meeting>> userToMeetings;
+    Map<User, List<Meeting>> ownersToMeetings;
+    Map<User, Set<Long>> invitedToMeetings;
+    Map<User, Set<Long>> acceptedToMeetings;
+    List<User> users;
+    List<UserMeeting> userMeetings;
+    List<Meeting> allMeetings;
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
@@ -308,11 +332,61 @@ class MeetingState {
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
         this.userService = userService;
-        userToMeetings = new HashMap<>();
+        ownersToMeetings = new HashMap<>();
+        invitedToMeetings = new HashMap<>();
+        acceptedToMeetings = new HashMap<>();
+    }
+
+    void recordCreation(User user, Meeting meeting) {
+        ownersToMeetings.get(user).add(meeting);
+    }
+
+    void recordInvitation(User user, long meetingId) {
+        invitedToMeetings.get(user).add(meetingId);
+    }
+
+    void recordAcceptance(long userId, long meetingId) {
+        var user = users.stream().filter(u -> u.id() == userId).findFirst().get();
+        invitedToMeetings.get(user).remove(meetingId);
+        acceptedToMeetings.get(user).add(meetingId);
     }
 
     List<User> getAvailableUsers() {
-        return userRepository.findAll();
+
+        return users;
+    }
+
+    List<Long> getAllMeetingIds() {
+        return ownersToMeetings.values().stream()
+            .flatMap(meeting -> meeting.stream().map(Meeting::id)).toList();
+    }
+
+
+    List<UserMeeting> findAllUserMeetings() {
+        return userMeetings;
+    }
+
+    List<Meeting> findAllMeetings() {
+        return allMeetings;
+    }
+
+    Meeting findMeetingById(long needle) {
+        return allMeetings.stream().filter(m -> m.id() == needle).findFirst().get();
+    }
+
+    void refresh() {
+        if (users == null) {
+            users = userRepository.findAll();
+            for (User u : users) {
+                ownersToMeetings.putIfAbsent(u, new ArrayList<>());
+                invitedToMeetings.putIfAbsent(u, new HashSet<>());
+                acceptedToMeetings.putIfAbsent(u, new HashSet<>());
+            }
+        }
+        userMeetings = new ArrayList<>();
+        userMeetings = userMeetingRepository.findAll();
+        allMeetings = new ArrayList<>();
+        allMeetings = meetingRepository.findAll();
     }
 
 }
