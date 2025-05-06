@@ -5,7 +5,9 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -98,10 +100,10 @@ public class OpGenTests {
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
         userRepository.deleteAll();
-
         alice = userService.createUser("alice");
         bob = userService.createUser("bob");
         charlie = userService.createUser("charlie");
+
     }
 
     // (shrinking = ShrinkingMode.FULL)
@@ -130,7 +132,7 @@ public class OpGenTests {
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
-            .withAction(new CreateMeetingAction(List.of(alice, bob, charlie), LOWER_BOUND_TS,
+            .withAction(new CreateMeetingAction(LOWER_BOUND_TS,
                 UPPER_BOUND_TS))
 //            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
@@ -233,19 +235,18 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
 }
 
 
-class CreateMeetingAction implements Action.Independent<MeetingState> {
+class CreateMeetingAction implements Action.Dependent<MeetingState> {
 
-    List<User> availableUsers;
     OffsetDateTime minTime;
     OffsetDateTime maxTime;
 
-    public CreateMeetingAction(List<User> users, OffsetDateTime minTime, OffsetDateTime maxTime) {
-        this.availableUsers = users;
+    public CreateMeetingAction(OffsetDateTime minTime, OffsetDateTime maxTime) {
         this.minTime = minTime;
         this.maxTime = maxTime;
     }
 
-    Arbitrary<Tuple4<String, User, OffsetDateTime, Integer>> meetingInputs() {
+    Arbitrary<Tuple4<String, User, OffsetDateTime, Integer>> meetingInputs(
+        List<User> availableUsers) {
         Arbitrary<OffsetDateTime> starts = new DefaultOffsetDateTimeArbitrary()
             .atTheEarliest(minTime.toLocalDateTime())
             .atTheLatest(maxTime.toLocalDateTime());
@@ -259,8 +260,8 @@ class CreateMeetingAction implements Action.Independent<MeetingState> {
     }
 
     @Override
-    public Arbitrary<Transformer<MeetingState>> transformer() {
-        return meetingInputs()
+    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
+        return meetingInputs(previousState.getAvailableUsers())
             .map(tuple -> Transformer.mutate(
                     String.format("user-%s-%s is creating a meeting from [%s] to [%s]",
                         tuple.get2().id(), tuple.get2().name(),
@@ -297,6 +298,7 @@ class MeetingState {
     UserRepository userRepository;
     UserMeetingRepository userMeetingRepository;
     UserService userService;
+    Map<User, List<Meeting>> userToMeetings;
 
     public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
         UserService userService, UserRepository userRepository,
@@ -306,6 +308,11 @@ class MeetingState {
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
         this.userService = userService;
+        userToMeetings = new HashMap<>();
+    }
+
+    List<User> getAvailableUsers() {
+        return userRepository.findAll();
     }
 
 }
