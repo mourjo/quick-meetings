@@ -6,10 +6,8 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -264,11 +262,9 @@ class MeetingState {
     private final UserRepository userRepository;
     private final UserMeetingRepository userMeetingRepository;
     private final UserService userService;
-    private final Map<User, List<Meeting>> ownersToMeetings;
-    private final Map<User, Set<Long>> invitedToMeetings;
-    private final Map<User, Set<Long>> acceptedToMeetings;
     private final List<User> users;
-
+    private final List<Meeting> meetings;
+    private final Map<Long, Meeting> idToMeeting;
 
     private final Set<UserMeeting> userMeetings;
 
@@ -280,22 +276,16 @@ class MeetingState {
         this.userRepository = userRepository;
         this.userMeetingRepository = userMeetingRepository;
         this.userService = userService;
-        this.ownersToMeetings = new HashMap<>();
-        this.invitedToMeetings = new HashMap<>();
-        this.acceptedToMeetings = new HashMap<>();
-
         this.users = users;
-        users.forEach(user -> {
-            ownersToMeetings.put(user, new ArrayList<>());
-            invitedToMeetings.put(user, new HashSet<>());
-            acceptedToMeetings.put(user, new HashSet<>());
-        });
+
+        meetings = new ArrayList<>();
+        idToMeeting = new HashMap<>();
 
         userMeetings = new TreeSet<>(new Comparator<UserMeeting>() {
             @Override
             public int compare(UserMeeting o1, UserMeeting o2) {
                 if (o1.meetingId() == o2.meetingId()) {
-                    
+
                     return Long.compare(o1.userId(), o2.userId());
                 }
                 return Long.compare(o1.meetingId(), o2.meetingId());
@@ -310,7 +300,10 @@ class MeetingState {
             from,
             to
         );
-        ownersToMeetings.get(user).add(meeting);
+
+        meetings.add(meeting);
+        idToMeeting.put(meeting.id(), meeting);
+
         userMeetings.add(UserMeeting.builder()
             .userId(user.id())
             .meetingId(meeting.id())
@@ -321,7 +314,6 @@ class MeetingState {
 
     void recordInvitation(User user, long meetingId) {
         meetingsService.invite(meetingId, user.id());
-        invitedToMeetings.get(user).add(meetingId);
         userMeetings.add(UserMeeting.builder()
             .userId(user.id())
             .meetingId(meetingId)
@@ -335,8 +327,6 @@ class MeetingState {
         var meetingId = userMeeting.meetingId();
         meetingsService.accept(meetingId, userId);
         var user = users.stream().filter(u -> u.id() == userId).findFirst().get();
-        invitedToMeetings.get(user).remove(meetingId);
-        acceptedToMeetings.get(user).add(meetingId);
 
         userMeetings.add(UserMeeting.builder()
             .userId(user.id())
@@ -351,15 +341,13 @@ class MeetingState {
         return users;
     }
 
-    List<Long> getAllMeetingIds() {
-        return ownersToMeetings.values().stream()
-            .flatMap(meeting -> meeting.stream().map(Meeting::id)).toList();
+    Set<Long> getAllMeetingIds() {
+        return idToMeeting.keySet();
     }
 
 
     List<Meeting> getAllMeetings() {
-        return ownersToMeetings.values().stream()
-            .flatMap(Collection::stream).toList();
+        return meetings;
     }
 
     Set<UserMeeting> findAllUserMeetings() {
@@ -367,14 +355,14 @@ class MeetingState {
     }
 
     Meeting findMeetingById(long needle) {
-        return getAllMeetings().stream().filter(m -> m.id() == needle).findFirst().get();
+        return idToMeeting.get(needle);
     }
 
     List<Meeting> overlappingMeetingForUser(long userId, OffsetDateTime from, OffsetDateTime to) {
         Set<Long> engagements = findAllUserMeetings().stream().filter(
             um -> um.userId() == userId
                 && (um.userRole() == RoleOfUser.OWNER || um.userRole() == RoleOfUser.ACCEPTED)
-        ).map(m -> m.meetingId()).collect(Collectors.toSet());
+        ).map(UserMeeting::meetingId).collect(Collectors.toSet());
 
         return getAllMeetings().stream().filter(meeting -> engagements.contains(meeting.id())
             && (
