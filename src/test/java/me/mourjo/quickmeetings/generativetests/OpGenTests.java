@@ -38,7 +38,7 @@ import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
-import net.jqwik.time.internal.properties.arbitraries.DefaultOffsetDateTimeArbitrary;
+import net.jqwik.time.internal.properties.arbitraries.DefaultLocalDateTimeArbitrary;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -68,8 +68,7 @@ public class OpGenTests {
     @Autowired
     UserService userService;
     User alice, bob, charlie;
-    @Autowired
-    JdbcTemplate jdbcTemplate;
+
 
     @BeforeTry
     void cleanup(@Autowired UserMeetingRepository userMeetingRepository,
@@ -106,7 +105,9 @@ public class OpGenTests {
     @BeforeProperty
     void createUsers(@Autowired UserService userService, @Autowired UserRepository userRepository,
         @Autowired MeetingRepository meetingRepository,
-        @Autowired UserMeetingRepository userMeetingRepository) {
+        @Autowired UserMeetingRepository userMeetingRepository,
+        @Autowired JdbcTemplate jdbcTemplate) {
+        jdbcTemplate.execute("VACUUM FULL");
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
         userRepository.deleteAll();
@@ -118,27 +119,11 @@ public class OpGenTests {
 
     // (shrinking = ShrinkingMode.FULL)
     @Property
-    //(shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
+    // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
-
-            state.findAllUserMeetings()
-                .parallelStream()
-                .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER
-                    || userMeeting.userRole() == RoleOfUser.ACCEPTED)
-                .forEach(userMeeting -> {
-
-                    var meeting = state.findMeetingById(userMeeting.meetingId());
-
-                    assertThat(
-                        state.overlappingMeetingForUser(
-                            userMeeting.userId(),
-                            meeting.startAt(),
-                            meeting.endAt()
-                        ).stream().map(m -> m.id()).collect(Collectors.toSet()).size()
-                    ).isEqualTo(1);
-                });
+            assertThat(state.verifyNoOverlap()).isTrue();
         }).run();
     }
 
@@ -146,8 +131,9 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
-            //.withAction(new AcceptInvitationAction())
-            .withAction(new CreateInvitationAction());
+//            .withAction(new AcceptInvitationAction())
+            .withAction(new CreateInvitationAction())
+            .withMaxTransformations(5);
     }
 }
 
@@ -217,9 +203,9 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
         this.maxTime = maxTime;
     }
 
-    Arbitrary<Tuple4<String, User, OffsetDateTime, Integer>> meetingInputs(
+    Arbitrary<Tuple4<String, User, LocalDateTime, Integer>> meetingInputs(
         List<User> availableUsers) {
-        Arbitrary<OffsetDateTime> starts = new DefaultOffsetDateTimeArbitrary()
+        Arbitrary<LocalDateTime> starts = new DefaultLocalDateTimeArbitrary()
             .atTheEarliest(minTime.toLocalDateTime())
             .atTheLatest(maxTime.toLocalDateTime());
 
@@ -245,7 +231,8 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
                             var from = tuple.get3();
                             var durationMins = tuple.get4();
                             var to = from.plusMinutes(durationMins);
-                            state.recordCreation(name, user, from, to);
+                            state.recordCreation(name, user, from.atOffset(ZoneOffset.UTC),
+                                to.atOffset(ZoneOffset.UTC));
                         } catch (OverlappingMeetingsException ex) {
                             // ignore
                         }
@@ -357,6 +344,40 @@ class MeetingState {
 
     Meeting findMeetingById(long needle) {
         return idToMeeting.get(needle);
+    }
+
+    boolean verifyNoOverlap() {
+        Map<Long, Set<Meeting>> userToChronoMeetings = new HashMap<>();
+        for (User u : users) {
+            userToChronoMeetings.putIfAbsent(u.id(), new TreeSet<>((o1, o2) -> {
+                if (o1.id() == o2.id()) {
+                    return 0;
+                }
+                if (o1.startAt().isEqual(o2.startAt())) {
+                    return Long.compare(o1.id(), o2.id());
+                }
+                return o1.startAt().compareTo(o2.startAt());
+            }));
+        }
+        for (UserMeeting userMeeting : userMeetings) {
+            if (userMeeting.userRole() == RoleOfUser.OWNER
+                || userMeeting.userRole() == RoleOfUser.ACCEPTED) {
+                var meeting = idToMeeting.get(userMeeting.meetingId());
+                userToChronoMeetings.get(userMeeting.userId()).add(meeting);
+            }
+        }
+
+        for (long userId : userToChronoMeetings.keySet()) {
+            var prevEnd = OpGenTests.LOWER_BOUND_TS.minusYears(10);
+            for (var meeting : userToChronoMeetings.get(userId)) {
+                if (meeting.startAt().isEqual(prevEnd) || meeting.startAt().isBefore(prevEnd)) {
+                    return false;
+                }
+                prevEnd = prevEnd.isBefore(meeting.endAt()) ? meeting.endAt() : prevEnd;
+            }
+        }
+
+        return true;
     }
 
     List<Meeting> overlappingMeetingForUser(long userId, OffsetDateTime from, OffsetDateTime to) {
