@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -118,9 +119,10 @@ public class OpGenTests {
 
     // (shrinking = ShrinkingMode.FULL)
     @Property
-    void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+    void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
+
             state.findAllUserMeetings()
                 .parallelStream()
                 .filter(userMeeting -> userMeeting.userRole() == RoleOfUser.OWNER
@@ -130,12 +132,20 @@ public class OpGenTests {
                     var meeting = state.findMeetingById(userMeeting.meetingId());
 
                     assertThat(
-                        state.meetingRepository.findOverlappingMeetingsForUser(
+                        state.overlappingMeetingForUser(
                             userMeeting.userId(),
                             meeting.startAt(),
                             meeting.endAt()
                         ).size()
                     ).isEqualTo(1);
+
+//                    assertThat(
+//                        state.meetingRepository.findOverlappingMeetingsForUser(
+//                            userMeeting.userId(),
+//                            meeting.startAt(),
+//                            meeting.endAt()
+//                        ).size()
+//                    ).isEqualTo(1);
                 });
 
 
@@ -373,6 +383,21 @@ class MeetingState {
     Meeting findMeetingById(long needle) {
         return allMeetings.stream().filter(m -> m.id() == needle).findFirst().get();
     }
+
+    List<Meeting> overlappingMeetingForUser(long userId, OffsetDateTime from, OffsetDateTime to) {
+        Set<Long> engagements = userMeetings.stream().filter(
+            um -> um.userId() == userId
+                && (um.userRole() == RoleOfUser.OWNER || um.userRole() == RoleOfUser.ACCEPTED)
+        ).map(m -> m.meetingId()).collect(Collectors.toSet());
+
+        return allMeetings.stream().filter(meeting -> engagements.contains(meeting.id())
+            && (
+            (meeting.startAt().isAfter(from) || meeting.startAt().equals(from)) &&
+                (meeting.endAt().isBefore(to) || meeting.endAt().equals(to))
+        )).toList();
+
+    }
+
 
     void refresh() {
         if (users == null) {
