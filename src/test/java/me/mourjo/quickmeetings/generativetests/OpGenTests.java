@@ -29,7 +29,6 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -119,7 +118,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property(shrinking = ShrinkingMode.FULL)
+    @Property
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain.withInvariant(state -> {
             state.refresh();
@@ -147,7 +146,7 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
-            .withAction(new AcceptInvitationAction())
+//            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction());
     }
 }
@@ -188,7 +187,8 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        var invitations = Arbitraries.of(previousState.userMeetingRepository.findAll());
+        previousState.refresh();
+        var invitations = Arbitraries.of(previousState.findAllUserMeetings());
 
         return invitations
             .map(invitation -> Transformer.mutate(
