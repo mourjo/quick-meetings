@@ -7,10 +7,10 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import me.mourjo.quickmeetings.db.Meeting;
@@ -23,6 +23,7 @@ import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
@@ -33,6 +34,7 @@ import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
+import net.jqwik.api.state.Action.JustMutate;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
@@ -91,7 +93,7 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
-    @Property
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
 
         chain.withInvariant(MeetingState::assertNoUserHasOverlappingMeetings).run();
@@ -101,14 +103,17 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction())
-//            .withAction(new AcceptInvitationAction())
+            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
             ;
     }
 }
 
 
-class CreateInvitationAction implements Action.Dependent<MeetingState> {
+class CreateInvitationAction extends JustMutate<MeetingState> {
+
+    Random r = new Random();
+    String descrip = "CreateInvitationAction";
 
     @Override
     public boolean precondition(MeetingState state) {
@@ -116,91 +121,89 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
     }
 
     @Override
-    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        Arbitrary<Long> meetingIds = Arbitraries.of(
-            previousState.getAllMeetingIds());
-        Arbitrary<User> users = Arbitraries.of(
-            previousState.getAvailableUsers()
+    public void mutate(MeetingState state) {
+        var meetingIds = new ArrayList<>(state.getAllMeetingIds());
+
+        var users = state.getAvailableUsers();
+        var user = users.get(r.nextInt(0, users.size()));
+        var meetingId = meetingIds.get(r.nextInt(0, meetingIds.size()));
+
+        descrip = "user-%s is invited to meeting-%s".formatted(user.id(), meetingId);
+
+        state.recordInvitation(
+            user,
+            meetingId
         );
+    }
 
-        return Combinators.combine(
-                users,
-                meetingIds
-            ).as(Tuple::of)
-            .map(tuple -> Transformer.mutate(
-                    "Inviting user-%s to meeting-%s".formatted(tuple.get1().id(), tuple.get2()),
-                    state ->
-                        state.recordInvitation(tuple.get1(), tuple.get2())
-                )
-            );
+    @Override
+    public String description() {
+        return descrip;
     }
 }
 
-class AcceptInvitationAction implements Action.Dependent<MeetingState> {
+class AcceptInvitationAction extends JustMutate<MeetingState> {
+
+    Random r = new Random();
+    String descrp = "AcceptInvitation";
+
+    @Override
+    public void mutate(MeetingState state) {
+        var userMeetings = new ArrayList<>(state.findAllUserMeetings());
+        var um = userMeetings.get(r.nextInt(0, userMeetings.size()));
+        descrp = "user-%s is accepting meeting-%s".formatted(um.userId(), um.meetingId());
+        state.recordAcceptance(um);
+
+    }
+
+    @Override
+    public String description() {
+        return descrp;
+    }
 
     @Override
     public boolean precondition(MeetingState state) {
         return state.getMeetingCount() > 0;
     }
-
-    @Override
-    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        var invitations = Arbitraries.of(previousState.findAllUserMeetings());
-
-        return invitations
-            .map(invitation -> Transformer.mutate(
-                    "User-%s is accepting meeting-%s".formatted(
-                        invitation.userId(),
-                        invitation.meetingId()),
-                    state -> state.recordAcceptance(invitation)
-                )
-            );
-    }
 }
 
+class CreateMeetingAction implements Action.Independent<MeetingState> {
 
-class CreateMeetingAction implements Action.Dependent<MeetingState> {
 
     int maxOffsetMins, maxDurationMins;
-
-    public CreateMeetingAction(int maxOffsetMins, int maxDurationMins) {
-        this.maxDurationMins = maxDurationMins;
-        this.maxOffsetMins = maxOffsetMins;
-    }
 
     public CreateMeetingAction() {
         this.maxDurationMins = 60;
         this.maxOffsetMins = 60;
     }
 
-    Arbitrary<Tuple4<String, User, Integer, Integer>> meetingInputs(
-        List<User> availableUsers) {
+    Arbitrary<Tuple4<String, Integer, Integer, Integer>> meetingInputs(
+        int countOfUsers) {
         var durationMins = Arbitraries.integers().between(1, maxDurationMins);
         var startOffsetMins = Arbitraries.integers().between(1, maxOffsetMins);
 
         return Combinators.combine(
             Arbitraries.strings().alpha().ofLength(5),
-            Arbitraries.of(availableUsers),
+            Arbitraries.integers().between(0, countOfUsers - 1),
             startOffsetMins,
             durationMins
         ).as(Tuple::of);
     }
 
     @Override
-    public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        return meetingInputs(previousState.getAvailableUsers())
+    public Arbitrary<Transformer<MeetingState>> transformer() {
+        return meetingInputs(3)
             .map(tuple -> Transformer.mutate(
-                    String.format("user-%s-%s is creating a meeting from [%s] to [%s]",
-                        tuple.get2().id(),
-                        tuple.get2().name(),
+                    String.format("user-%s is creating a meeting from [%s] to [%s]",
+                        tuple.get2(),
                         LOWER_BOUND_TS.plusMinutes(tuple.get3()),
                         LOWER_BOUND_TS.plusMinutes(tuple.get3() + tuple.get4())),
                     state -> {
                         var name = tuple.get1();
-                        var user = tuple.get2();
+                        var userIdx = tuple.get2();
                         var from = LOWER_BOUND_TS.plusMinutes(tuple.get3());
                         var to = LOWER_BOUND_TS.plusMinutes(tuple.get3() + tuple.get4());
-                        state.recordCreation(name, user, from, to);
+                        state.recordCreation(name, userIdx, from, to);
                     }
                 )
             );
@@ -230,26 +233,31 @@ class MeetingState {
         meetings = new ArrayList<>();
         idToMeeting = new HashMap<>();
 
-        userMeetings = new TreeSet<>(new Comparator<UserMeeting>() {
-            @Override
-            public int compare(UserMeeting o1, UserMeeting o2) {
-                if (o1.meetingId() == o2.meetingId()) {
-                    return Long.compare(o1.userId(), o2.userId());
-                }
-                return Long.compare(o1.meetingId(), o2.meetingId());
+        userMeetings = new TreeSet<>((o1, o2) -> {
+            if (o1.meetingId() == o2.meetingId()) {
+                return Long.compare(o1.userId(), o2.userId());
             }
+            return Long.compare(o1.meetingId(), o2.meetingId());
         });
 
-        meetingRepository.deleteAll();
-        userMeetingRepository.deleteAll();
-
+        this.meetingRepository.deleteAll();
+        this.userMeetingRepository.deleteAll();
     }
 
-    void recordCreation(String name, User user, OffsetDateTime from, OffsetDateTime to) {
+    UserMeeting idxToUserMeeting(int idx) {
+        for (var userMeeting : userMeetings) {
+            if (idx-- == 0) {
+                return userMeeting;
+            }
+        }
+        return null;
+    }
+
+    void recordCreation(String name, int userIdx, OffsetDateTime from, OffsetDateTime to) {
         try {
             var meeting = meetingsService.createMeeting(
                 name,
-                user.id(),
+                users.get(userIdx).id(),
                 from,
                 to
             );
@@ -258,7 +266,7 @@ class MeetingState {
             idToMeeting.put(meeting.id(), meeting);
 
             userMeetings.add(UserMeeting.builder()
-                .userId(user.id())
+                .userId(users.get(userIdx).id())
                 .meetingId(meeting.id())
                 .userRole(RoleOfUser.OWNER)
                 .build()
@@ -305,11 +313,6 @@ class MeetingState {
 
     Set<Long> getAllMeetingIds() {
         return idToMeeting.keySet();
-    }
-
-
-    List<Meeting> getAllMeetings() {
-        return meetings;
     }
 
     Set<UserMeeting> findAllUserMeetings() {
