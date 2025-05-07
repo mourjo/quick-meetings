@@ -40,7 +40,6 @@ import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
-import net.jqwik.time.internal.properties.arbitraries.DefaultLocalDateTimeArbitrary;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -58,7 +57,7 @@ public class OpGenTests {
         0,
         0
     ).atOffset(ZoneOffset.UTC);
-    public static final OffsetDateTime UPPER_BOUND_TS = LOWER_BOUND_TS.plusHours(2);
+
     @Autowired
     MeetingsService meetingsService;
     @Autowired
@@ -131,7 +130,7 @@ public class OpGenTests {
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
-            .withAction(new CreateMeetingAction(LOWER_BOUND_TS, UPPER_BOUND_TS))
+            .withAction(new CreateMeetingAction(LOWER_BOUND_TS, 60, 60))
             .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
             ;
@@ -196,25 +195,25 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
 
 class CreateMeetingAction implements Action.Dependent<MeetingState> {
 
-    OffsetDateTime minTime;
-    OffsetDateTime maxTime;
+    OffsetDateTime minStartTime;
+    int maxOffsetMins, maxDurationMins;
 
-    public CreateMeetingAction(OffsetDateTime minTime, OffsetDateTime maxTime) {
-        this.minTime = minTime;
-        this.maxTime = maxTime;
+    public CreateMeetingAction(OffsetDateTime minTime, int maxOffsetMins, int maxDurationMins) {
+        this.minStartTime = minTime;
+        this.maxDurationMins = maxDurationMins;
+        this.maxOffsetMins = maxOffsetMins;
     }
 
-    Arbitrary<Tuple4<String, User, LocalDateTime, Integer>> meetingInputs(
+    Arbitrary<Tuple4<String, User, Integer, Integer>> meetingInputs(
         List<User> availableUsers) {
-        Arbitrary<LocalDateTime> starts = new DefaultLocalDateTimeArbitrary()
-            .atTheEarliest(minTime.toLocalDateTime())
-            .atTheLatest(maxTime.toLocalDateTime());
+        var durationMins = Arbitraries.integers().between(1, maxDurationMins);
+        var startOffsetMins = Arbitraries.integers().between(1, maxOffsetMins);
 
         return Combinators.combine(
             Arbitraries.strings().alpha().ofLength(5),
             Arbitraries.of(availableUsers),
-            starts,
-            Arbitraries.integers().between(30, 60)
+            startOffsetMins,
+            durationMins
         ).as(Tuple::of);
     }
 
@@ -223,17 +222,17 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
         return meetingInputs(previousState.getAvailableUsers())
             .map(tuple -> Transformer.mutate(
                     String.format("user-%s-%s is creating a meeting from [%s] to [%s]",
-                        tuple.get2().id(), tuple.get2().name(),
-                        tuple.get3(), tuple.get3().plusMinutes(tuple.get4())),
+                        tuple.get2().id(),
+                        tuple.get2().name(),
+                        minStartTime.plusMinutes(tuple.get3()),
+                        minStartTime.plusMinutes(tuple.get3() + tuple.get4())),
                     state -> {
                         try {
                             var name = tuple.get1();
                             var user = tuple.get2();
-                            var from = tuple.get3();
-                            var durationMins = tuple.get4();
-                            var to = from.plusMinutes(durationMins);
-                            state.recordCreation(name, user, from.atOffset(ZoneOffset.UTC),
-                                to.atOffset(ZoneOffset.UTC));
+                            var from = minStartTime.plusMinutes(tuple.get3());
+                            var to = minStartTime.plusMinutes(tuple.get3() + tuple.get4());
+                            state.recordCreation(name, user, from, to);
                         } catch (OverlappingMeetingsException ex) {
                             // ignore
                         }
