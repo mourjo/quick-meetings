@@ -3,11 +3,11 @@ package me.mourjo.quickmeetings.generativetests;
 import static me.mourjo.quickmeetings.generativetests.OpGenTests.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +38,7 @@ import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.Action.JustMutate;
 import net.jqwik.api.state.ActionChain;
+import net.jqwik.api.state.ChangeDetector;
 import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -105,9 +106,22 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction())
-            .withAction(new AcceptInvitationAction())
-            .withAction(new CreateInvitationAction())
-            ;
+//            .withAction(new AcceptInvitationAction())
+            .withAction(4, new CreateInvitationAction())
+            .improveShrinkingWith(MeetingStateChangesDetector::new);
+    }
+}
+
+class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
+
+    @Override
+    public void before(MeetingState before) {
+
+    }
+
+    @Override
+    public boolean hasChanged(MeetingState after) {
+        return after.isLastChangeImpacted();
     }
 }
 
@@ -128,7 +142,6 @@ class CreateInvitationAction extends JustMutate<MeetingState> {
 
         var users = state.getAvailableUsers();
         var user = users.get(r.nextInt(0, users.size()));
-        //var meetings = state.findLongestMeetings();
 
         var meetingId = meetingIds.get(r.nextInt(0, meetingIds.size()));
         descrip = "user-%s is invited to meeting-%s".formatted(user.id(), meetingId);
@@ -136,16 +149,27 @@ class CreateInvitationAction extends JustMutate<MeetingState> {
             user,
             meetingId
         );
+
+//        var meetings = state.findLongestMeetings();
 //
+//        int maxTries = 8;
+//        for (Meeting meeting : meetings) {
+//            for (User user : state.getAvailableUsers()) {
+//                if (r.nextInt(100) < 30) {
+//                    return;
+//                }
 //
-//        for (User user : users) {
-//            for (Meeting meeting : meetings) {
 //                if (state.recordInvitation(user, meeting.id())) {
 //                    descrip = "user-%s is invited to meeting-%s".formatted(user.id(), meeting.id());
-//                    break;
+//                    return;
+//                }
+//
+//                if (maxTries-- <= 0) {
+//                    return;
 //                }
 //            }
 //        }
+
     }
 
     @Override
@@ -166,18 +190,28 @@ class AcceptInvitationAction extends JustMutate<MeetingState> {
         descrp = "user-%s is accepting meeting-%s".formatted(um.userId(), um.meetingId());
         state.recordAcceptance(um);
 
-//        for (User user : state.getAvailableUsers()) {
-//            for (Meeting meeting : state.findLongestMeetings()) {
+//        int maxTries = 8;
+//        for (Meeting meeting : state.findLongestMeetings()) {
+//            for (User user : state.getAvailableUsers()) {
+//                if (r.nextInt(100) < 30) {
+//                    continue;
+//                }
+//
 //                var um = UserMeeting.builder()
 //                    .userId(user.id())
 //                    .meetingId(meeting.id())
 //                    .build();
 //                if (state.recordAcceptance(um)) {
-//                    break;
+//                    return;
+//                }
+//
+//                if (maxTries-- <= 0) {
+//                    return;
 //                }
 //
 //            }
 //        }
+
     }
 
     @Override
@@ -245,6 +279,8 @@ class MeetingState {
     private final UserMeetingRepository userMeetingRepository;
     private final MeetingRepository meetingRepository;
 
+    private boolean lastChangeImpacted = false;
+
     public MeetingState(MeetingsService meetingsService,
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
         List<User> users) {
@@ -295,9 +331,11 @@ class MeetingState {
                 .userRole(RoleOfUser.OWNER)
                 .build()
             );
+            lastChangeImpacted = true;
         } catch (OverlappingMeetingsException ignored) {
-
+            lastChangeImpacted = false;
         }
+
     }
 
     boolean recordInvitation(User user, long meetingId) {
@@ -312,11 +350,12 @@ class MeetingState {
 
                 userMeetings.remove(userMeeting);
                 userMeetings.add(userMeeting);
+                lastChangeImpacted = true;
                 return true;
             }
         } catch (OverlappingMeetingsException ignored) {
-
         }
+        lastChangeImpacted = false;
         return false;
     }
 
@@ -331,13 +370,21 @@ class MeetingState {
                 .build();
             userMeetings.remove(userMeeting1);
             userMeetings.add(userMeeting1);
+            lastChangeImpacted = true;
             return true;
         }
+        lastChangeImpacted = false;
         return false;
     }
 
+    boolean isLastChangeImpacted() {
+        return lastChangeImpacted;
+    }
+
     List<User> getAvailableUsers() {
-        return users;
+        var shuffledUsers = new ArrayList<>(users);
+        Collections.shuffle(shuffledUsers);
+        return shuffledUsers;
     }
 
     Set<Long> getAllMeetingIds() {
@@ -360,9 +407,11 @@ class MeetingState {
         meetings.sort(new Comparator<Meeting>() {
             @Override
             public int compare(Meeting o1, Meeting o2) {
-                var duration1 = Duration.between(o1.startAt(), o1.endAt());
-                var duration2 = Duration.between(o2.startAt(), o2.endAt());
-                return duration2.compareTo(duration1);
+//                var duration1 = Duration.between(o1.startAt(), o1.endAt());
+//                var duration2 = Duration.between(o2.startAt(), o2.endAt());
+//                return duration2.compareTo(duration1);
+                return o1.startAt().compareTo(o2.startAt());
+
             }
         });
         return meetings;
