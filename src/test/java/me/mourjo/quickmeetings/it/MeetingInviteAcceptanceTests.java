@@ -20,12 +20,15 @@ public class MeetingInviteAcceptanceTests extends BaseIT {
             List.of(bob.id(), charlie.id())
         );
 
-        for (int i = 0; i < 3; i++) {
-            assertThat(meetingsService.accept(
-                aliceMeetingId,
-                bob.id()
-            )).isTrue();
-        }
+        assertThat(meetingsService.accept(
+            aliceMeetingId,
+            bob.id()
+        )).isTrue();
+
+        assertThat(meetingsService.accept(
+            aliceMeetingId,
+            bob.id()
+        )).isFalse();
 
         var activeUsers = Set.of(alice.id(), bob.id(), charlie.id());
 

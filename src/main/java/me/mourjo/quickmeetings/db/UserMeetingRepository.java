@@ -22,7 +22,7 @@ public interface UserMeetingRepository extends ListCrudRepository<UserMeeting, L
         UPDATE user_meetings
         SET role_of_user = 'ACCEPTED', updated_ts=NOW()
         WHERE user_id = :userId AND meeting_id = :meetingId
-        AND role_of_user IN ('ACCEPTED', 'INVITED')
+        AND role_of_user IN ('INVITED')
         """)
     int acceptInvite(@Param("meetingId") long meetingId, @Param("userId") long userId);
 
