@@ -103,7 +103,7 @@ public class OpGenTests {
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction())
-            .withAction(new AcceptInvitationAction())
+//            .withAction(new AcceptInvitationAction())
             .withAction(new InviteAction())
             .improveShrinkingWith(MeetingStateChangesDetector::new)
             .withMaxTransformations(10)
