@@ -3,10 +3,12 @@ package me.mourjo.quickmeetings.generativetests;
 import static me.mourjo.quickmeetings.generativetests.OpGenTests.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,14 +128,24 @@ class CreateInvitationAction extends JustMutate<MeetingState> {
 
         var users = state.getAvailableUsers();
         var user = users.get(r.nextInt(0, users.size()));
+        //var meetings = state.findLongestMeetings();
+
         var meetingId = meetingIds.get(r.nextInt(0, meetingIds.size()));
-
         descrip = "user-%s is invited to meeting-%s".formatted(user.id(), meetingId);
-
         state.recordInvitation(
             user,
             meetingId
         );
+//
+//
+//        for (User user : users) {
+//            for (Meeting meeting : meetings) {
+//                if (state.recordInvitation(user, meeting.id())) {
+//                    descrip = "user-%s is invited to meeting-%s".formatted(user.id(), meeting.id());
+//                    break;
+//                }
+//            }
+//        }
     }
 
     @Override
@@ -154,6 +166,18 @@ class AcceptInvitationAction extends JustMutate<MeetingState> {
         descrp = "user-%s is accepting meeting-%s".formatted(um.userId(), um.meetingId());
         state.recordAcceptance(um);
 
+//        for (User user : state.getAvailableUsers()) {
+//            for (Meeting meeting : state.findLongestMeetings()) {
+//                var um = UserMeeting.builder()
+//                    .userId(user.id())
+//                    .meetingId(meeting.id())
+//                    .build();
+//                if (state.recordAcceptance(um)) {
+//                    break;
+//                }
+//
+//            }
+//        }
     }
 
     @Override
@@ -276,23 +300,27 @@ class MeetingState {
         }
     }
 
-    void recordInvitation(User user, long meetingId) {
+    boolean recordInvitation(User user, long meetingId) {
         try {
-            meetingsService.invite(meetingId, user.id());
-            var userMeeting = UserMeeting.builder()
-                .userId(user.id())
-                .meetingId(meetingId)
-                .userRole(RoleOfUser.INVITED)
-                .build();
+            var invitees = meetingsService.invite(meetingId, user.id());
+            if (!invitees.isEmpty()) {
+                var userMeeting = UserMeeting.builder()
+                    .userId(user.id())
+                    .meetingId(meetingId)
+                    .userRole(RoleOfUser.INVITED)
+                    .build();
 
-            userMeetings.remove(userMeeting);
-            userMeetings.add(userMeeting);
+                userMeetings.remove(userMeeting);
+                userMeetings.add(userMeeting);
+                return true;
+            }
         } catch (OverlappingMeetingsException ignored) {
 
         }
+        return false;
     }
 
-    void recordAcceptance(UserMeeting userMeeting) {
+    boolean recordAcceptance(UserMeeting userMeeting) {
         var userId = userMeeting.userId();
         var meetingId = userMeeting.meetingId();
         if (meetingsService.accept(meetingId, userId)) {
@@ -303,11 +331,12 @@ class MeetingState {
                 .build();
             userMeetings.remove(userMeeting1);
             userMeetings.add(userMeeting1);
+            return true;
         }
+        return false;
     }
 
     List<User> getAvailableUsers() {
-
         return users;
     }
 
@@ -325,6 +354,18 @@ class MeetingState {
 
     void assertNoUserHasOverlappingMeetings() {
         assertThat(hasOverlap()).isFalse();
+    }
+
+    List<Meeting> findLongestMeetings() {
+        meetings.sort(new Comparator<Meeting>() {
+            @Override
+            public int compare(Meeting o1, Meeting o2) {
+                var duration1 = Duration.between(o1.startAt(), o1.endAt());
+                var duration2 = Duration.between(o2.startAt(), o2.endAt());
+                return duration2.compareTo(duration1);
+            }
+        });
+        return meetings;
     }
 
     private boolean hasOverlap() {
