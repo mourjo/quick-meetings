@@ -1,5 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
+import static me.mourjo.quickmeetings.generativetests.OpGenTests.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.LocalDateTime;
@@ -19,7 +20,6 @@ import me.mourjo.quickmeetings.db.UserMeeting;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
-import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
@@ -32,7 +32,6 @@ import net.jqwik.api.Provide;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
-import net.jqwik.api.lifecycle.BeforeTry;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.Transformer;
@@ -56,45 +55,22 @@ public class OpGenTests {
     ).atOffset(ZoneOffset.UTC);
 
     @Autowired
-    MeetingsService meetingsService;
+    UserMeetingRepository userMeetingRepository;
     @Autowired
     MeetingRepository meetingRepository;
     @Autowired
-    UserRepository userRepository;
-    @Autowired
-    UserMeetingRepository userMeetingRepository;
-    @Autowired
-    UserService userService;
-    User alice, bob, charlie;
-
-
-    @BeforeTry
-    void cleanup(@Autowired UserMeetingRepository userMeetingRepository,
-        @Autowired MeetingRepository meetingRepository) {
-//        userMeetingRepository.deleteAll();
-//        meetingRepository.deleteAll();
-    }
+    MeetingsService meetingsService;
+    List<User> users;
 
     public MeetingState init() {
-        userMeetingRepository.deleteAll();
-        meetingRepository.deleteAll();
-
         var state = new MeetingState(
             meetingsService,
-            meetingRepository,
-            userService,
-            userRepository,
             userMeetingRepository,
-            List.of(alice, bob, charlie)
+            meetingRepository,
+            users
         );
 
         // todo remove this initial seed - test for invitations separately
-        state.recordCreation(
-            "Pre-test",
-            bob,
-            LOWER_BOUND_TS.plusMinutes(10),
-            LOWER_BOUND_TS.plusMinutes(15)
-        );
 
         return state;
 
@@ -105,14 +81,13 @@ public class OpGenTests {
         @Autowired MeetingRepository meetingRepository,
         @Autowired UserMeetingRepository userMeetingRepository,
         @Autowired JdbcTemplate jdbcTemplate) {
-        jdbcTemplate.execute("VACUUM FULL");
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
         userRepository.deleteAll();
-        alice = userService.createUser("alice");
-        bob = userService.createUser("bob");
-        charlie = userService.createUser("charlie");
-
+        User alice = userService.createUser("alice");
+        User bob = userService.createUser("bob");
+        User charlie = userService.createUser("charlie");
+        users = List.of(alice, bob, charlie);
     }
 
     // (shrinking = ShrinkingMode.FULL)
@@ -125,8 +100,8 @@ public class OpGenTests {
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
-            .withAction(new CreateMeetingAction(LOWER_BOUND_TS, 60, 60))
-            //.withAction(new AcceptInvitationAction())
+            .withAction(new CreateMeetingAction())
+//            .withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
             ;
     }
@@ -144,20 +119,13 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
         );
 
         return Combinators.combine(
-                meetingIds,
-                users
+                users,
+                meetingIds
             ).as(Tuple::of)
             .map(tuple -> Transformer.mutate(
-                    "Inviting user-%s to meeting-%s".formatted(tuple.get2().id(), tuple.get1()),
-                    state -> {
-                        var meetingId = tuple.get1();
-                        var user = tuple.get2();
-                        try {
-                            state.recordInvitation(user, meetingId);
-                        } catch (MeetingNotFoundException | OverlappingMeetingsException ex) {
-                            // ignored
-                        }
-                    }
+                    "Inviting user-%s to meeting-%s".formatted(tuple.get1().id(), tuple.get2()),
+                    state ->
+                        state.recordInvitation(tuple.get1(), tuple.get2())
                 )
             );
     }
@@ -174,13 +142,7 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
                     "User-%s is accepting meeting-%s".formatted(
                         invitation.userId(),
                         invitation.meetingId()),
-                    state -> {
-                        try {
-                            state.recordAcceptance(invitation);
-                        } catch (MeetingNotFoundException ex) {
-                            // ignored
-                        }
-                    }
+                    state -> state.recordAcceptance(invitation)
                 )
             );
     }
@@ -189,13 +151,16 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
 
 class CreateMeetingAction implements Action.Dependent<MeetingState> {
 
-    OffsetDateTime minStartTime;
     int maxOffsetMins, maxDurationMins;
 
-    public CreateMeetingAction(OffsetDateTime minTime, int maxOffsetMins, int maxDurationMins) {
-        this.minStartTime = minTime;
+    public CreateMeetingAction(int maxOffsetMins, int maxDurationMins) {
         this.maxDurationMins = maxDurationMins;
         this.maxOffsetMins = maxOffsetMins;
+    }
+
+    public CreateMeetingAction() {
+        this.maxDurationMins = 60;
+        this.maxOffsetMins = 60;
     }
 
     Arbitrary<Tuple4<String, User, Integer, Integer>> meetingInputs(
@@ -218,18 +183,14 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
                     String.format("user-%s-%s is creating a meeting from [%s] to [%s]",
                         tuple.get2().id(),
                         tuple.get2().name(),
-                        minStartTime.plusMinutes(tuple.get3()),
-                        minStartTime.plusMinutes(tuple.get3() + tuple.get4())),
+                        LOWER_BOUND_TS.plusMinutes(tuple.get3()),
+                        LOWER_BOUND_TS.plusMinutes(tuple.get3() + tuple.get4())),
                     state -> {
-                        try {
-                            var name = tuple.get1();
-                            var user = tuple.get2();
-                            var from = minStartTime.plusMinutes(tuple.get3());
-                            var to = minStartTime.plusMinutes(tuple.get3() + tuple.get4());
-                            state.recordCreation(name, user, from, to);
-                        } catch (OverlappingMeetingsException ex) {
-                            // ignore
-                        }
+                        var name = tuple.get1();
+                        var user = tuple.get2();
+                        var from = LOWER_BOUND_TS.plusMinutes(tuple.get3());
+                        var to = LOWER_BOUND_TS.plusMinutes(tuple.get3() + tuple.get4());
+                        state.recordCreation(name, user, from, to);
                     }
                 )
             );
@@ -239,24 +200,21 @@ class CreateMeetingAction implements Action.Dependent<MeetingState> {
 class MeetingState {
 
     private final MeetingsService meetingsService;
-    private final MeetingRepository meetingRepository;
-    private final UserRepository userRepository;
-    private final UserMeetingRepository userMeetingRepository;
-    private final UserService userService;
     private final List<User> users;
     private final List<Meeting> meetings;
     private final Map<Long, Meeting> idToMeeting;
 
     private final Set<UserMeeting> userMeetings;
+    private final UserMeetingRepository userMeetingRepository;
+    private final MeetingRepository meetingRepository;
 
-    public MeetingState(MeetingsService meetingsService, MeetingRepository meetingRepository,
-        UserService userService, UserRepository userRepository,
-        UserMeetingRepository userMeetingRepository, List<User> users) {
-        this.meetingsService = meetingsService;
-        this.meetingRepository = meetingRepository;
-        this.userRepository = userRepository;
+    public MeetingState(MeetingsService meetingsService,
+        UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
+        List<User> users) {
+
         this.userMeetingRepository = userMeetingRepository;
-        this.userService = userService;
+        this.meetingRepository = meetingRepository;
+        this.meetingsService = meetingsService;
         this.users = users;
 
         meetings = new ArrayList<>();
@@ -271,37 +229,56 @@ class MeetingState {
                 return Long.compare(o1.meetingId(), o2.meetingId());
             }
         });
+
+        meetingRepository.deleteAll();
+        userMeetingRepository.deleteAll();
+
+        recordCreation(
+            "Pre-test",
+            users.get(0),
+            LOWER_BOUND_TS.plusMinutes(10),
+            LOWER_BOUND_TS.plusMinutes(15)
+        );
+
     }
 
     void recordCreation(String name, User user, OffsetDateTime from, OffsetDateTime to) {
-        var meeting = meetingsService.createMeeting(
-            name,
-            user.id(),
-            from,
-            to
-        );
+        try {
+            var meeting = meetingsService.createMeeting(
+                name,
+                user.id(),
+                from,
+                to
+            );
 
-        meetings.add(meeting);
-        idToMeeting.put(meeting.id(), meeting);
+            meetings.add(meeting);
+            idToMeeting.put(meeting.id(), meeting);
 
-        userMeetings.add(UserMeeting.builder()
-            .userId(user.id())
-            .meetingId(meeting.id())
-            .userRole(RoleOfUser.OWNER)
-            .build()
-        );
+            userMeetings.add(UserMeeting.builder()
+                .userId(user.id())
+                .meetingId(meeting.id())
+                .userRole(RoleOfUser.OWNER)
+                .build()
+            );
+        } catch (OverlappingMeetingsException ignored) {
+
+        }
     }
 
     void recordInvitation(User user, long meetingId) {
-        meetingsService.invite(meetingId, user.id());
-        var userMeeting = UserMeeting.builder()
-            .userId(user.id())
-            .meetingId(meetingId)
-            .userRole(RoleOfUser.INVITED)
-            .build();
+        try {
+            meetingsService.invite(meetingId, user.id());
+            var userMeeting = UserMeeting.builder()
+                .userId(user.id())
+                .meetingId(meetingId)
+                .userRole(RoleOfUser.INVITED)
+                .build();
 
-        userMeetings.remove(userMeeting);
-        userMeetings.add(userMeeting);
+            userMeetings.remove(userMeeting);
+            userMeetings.add(userMeeting);
+        } catch (OverlappingMeetingsException ignored) {
+
+        }
     }
 
     void recordAcceptance(UserMeeting userMeeting) {
@@ -366,7 +343,7 @@ class MeetingState {
         }
 
         for (long userId : userToChronoMeetings.keySet()) {
-            var prevEnd = OpGenTests.LOWER_BOUND_TS.minusYears(10);
+            var prevEnd = LOWER_BOUND_TS.minusYears(10);
             for (var meeting : userToChronoMeetings.get(userId)) {
                 if (meeting.startAt().isEqual(prevEnd) || meeting.startAt().isBefore(prevEnd)) {
                     return true;
