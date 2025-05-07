@@ -86,6 +86,7 @@ public class OpGenTests {
         userMeetingRepository.deleteAll();
         meetingRepository.deleteAll();
         userRepository.deleteAll();
+        jdbcTemplate.execute("VACUUM FULL");
         User alice = userService.createUser("alice");
         User bob = userService.createUser("bob");
         User charlie = userService.createUser("charlie");
