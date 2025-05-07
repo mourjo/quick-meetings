@@ -90,7 +90,7 @@ public class OpGenTests {
         users = List.of(alice, bob, charlie);
     }
 
-    // (shrinking = ShrinkingMode.FULL)
+    // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
     @Property
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
 
@@ -109,6 +109,11 @@ public class OpGenTests {
 
 
 class CreateInvitationAction implements Action.Dependent<MeetingState> {
+
+    @Override
+    public boolean precondition(MeetingState state) {
+        return state.getMeetingCount() > 0;
+    }
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
@@ -132,6 +137,11 @@ class CreateInvitationAction implements Action.Dependent<MeetingState> {
 }
 
 class AcceptInvitationAction implements Action.Dependent<MeetingState> {
+
+    @Override
+    public boolean precondition(MeetingState state) {
+        return state.getMeetingCount() > 0;
+    }
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
@@ -233,13 +243,6 @@ class MeetingState {
         meetingRepository.deleteAll();
         userMeetingRepository.deleteAll();
 
-        recordCreation(
-            "Pre-test",
-            users.get(0),
-            LOWER_BOUND_TS.plusMinutes(10),
-            LOWER_BOUND_TS.plusMinutes(15)
-        );
-
     }
 
     void recordCreation(String name, User user, OffsetDateTime from, OffsetDateTime to) {
@@ -313,8 +316,8 @@ class MeetingState {
         return userMeetings;
     }
 
-    Meeting findMeetingById(long needle) {
-        return idToMeeting.get(needle);
+    int getMeetingCount() {
+        return meetings.size();
     }
 
     void assertNoUserHasOverlappingMeetings() {
