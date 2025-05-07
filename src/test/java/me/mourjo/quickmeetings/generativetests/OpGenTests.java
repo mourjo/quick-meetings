@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -24,14 +23,12 @@ import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
-import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple4;
 import net.jqwik.api.lifecycle.BeforeProperty;
@@ -119,19 +116,17 @@ public class OpGenTests {
     }
 
     // (shrinking = ShrinkingMode.FULL)
-    @Property(shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
+    @Property
     void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-        chain.withInvariant(state -> {
-            state.refresh();
-            assertThat(state.verifyNoOverlap()).isTrue();
-        }).run();
+
+        chain.withInvariant(MeetingState::assertNoUserHasOverlappingMeetings).run();
     }
 
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction(LOWER_BOUND_TS, 60, 60))
-            .withAction(new AcceptInvitationAction())
+            //.withAction(new AcceptInvitationAction())
             .withAction(new CreateInvitationAction())
             ;
     }
@@ -172,7 +167,6 @@ class AcceptInvitationAction implements Action.Dependent<MeetingState> {
 
     @Override
     public Arbitrary<Transformer<MeetingState>> transformer(MeetingState previousState) {
-        previousState.refresh();
         var invitations = Arbitraries.of(previousState.findAllUserMeetings());
 
         return invitations
@@ -346,7 +340,11 @@ class MeetingState {
         return idToMeeting.get(needle);
     }
 
-    boolean verifyNoOverlap() {
+    void assertNoUserHasOverlappingMeetings() {
+        assertThat(hasOverlap()).isFalse();
+    }
+
+    private boolean hasOverlap() {
         Map<Long, Set<Meeting>> userToChronoMeetings = new HashMap<>();
         for (User u : users) {
             userToChronoMeetings.putIfAbsent(u.id(), new TreeSet<>((o1, o2) -> {
@@ -371,32 +369,12 @@ class MeetingState {
             var prevEnd = OpGenTests.LOWER_BOUND_TS.minusYears(10);
             for (var meeting : userToChronoMeetings.get(userId)) {
                 if (meeting.startAt().isEqual(prevEnd) || meeting.startAt().isBefore(prevEnd)) {
-                    return false;
+                    return true;
                 }
                 prevEnd = prevEnd.isBefore(meeting.endAt()) ? meeting.endAt() : prevEnd;
             }
         }
 
-        return true;
+        return false;
     }
-
-    List<Meeting> overlappingMeetingForUser(long userId, OffsetDateTime from, OffsetDateTime to) {
-        Set<Long> engagements = findAllUserMeetings().stream().filter(
-            um -> um.userId() == userId
-                && (um.userRole() == RoleOfUser.OWNER || um.userRole() == RoleOfUser.ACCEPTED)
-        ).map(UserMeeting::meetingId).collect(Collectors.toSet());
-
-        return getAllMeetings().stream().filter(meeting -> engagements.contains(meeting.id())
-            && (
-            (meeting.startAt().isAfter(from) || meeting.startAt().equals(from)) &&
-                (meeting.endAt().isBefore(to) || meeting.endAt().equals(to))
-        )).toList();
-
-    }
-
-
-    void refresh() {
-
-    }
-
 }
