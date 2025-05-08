@@ -21,6 +21,7 @@ import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
+import me.mourjo.quickmeetings.generativetests.Inputs.MAction;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.AfterFailureMode;
@@ -32,6 +33,7 @@ import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.Tuple;
 import net.jqwik.api.Tuple.Tuple3;
+import net.jqwik.api.arbitraries.ListArbitrary;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
@@ -64,6 +66,8 @@ public class OpGenTests {
     MeetingsService meetingsService;
     List<User> users;
 
+    MeetingState meetingState;
+
     public MeetingState init() {
         var state = new MeetingState(
             meetingsService,
@@ -93,22 +97,120 @@ public class OpGenTests {
         users = List.of(alice, bob, charlie);
     }
 
-    // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+//    // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
+//    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+//    void invariant(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+//
+//        chain.withInvariant(MeetingState::assertNoUserHasOverlappingMeetings).run();
+//    }
 
-        chain.withInvariant(MeetingState::assertNoUserHasOverlappingMeetings).run();
-    }
 
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
             .withAction(new CreateMeetingAction())
-//            .withAction(new AcceptInvitationAction())
+            .withAction(new AcceptInvitationAction())
             .withAction(new InviteAction())
             .improveShrinkingWith(MeetingStateChangesDetector::new)
-            .withMaxTransformations(10)
+            .withMaxTransformations(8)
             ;
+    }
+
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    void invariant(
+        @ForAll("meetingInputs") List<Inputs> meetingInputList) {
+        meetingState = init();
+        for (Inputs meetingInputs : meetingInputList) {
+            var users = meetingState.getAvailableUsers();
+            int userIndex = meetingInputs.userIdx % users.size();
+            var user = users.get(userIndex);
+            var meetings = meetingState.getAllMeetings();
+
+            if (meetingInputs.action == MAction.CREATE) {
+
+                var from = LOWER_BOUND_TS.plusMinutes(meetingInputs.startOffsetMins);
+                var to = LOWER_BOUND_TS.plusMinutes(
+                    meetingInputs.startOffsetMins + meetingInputs.durationMins);
+
+                meetingState.recordCreation(user, from, to);
+
+            } else if (meetings.size() > 0 &&
+                (meetingInputs.action == MAction.ACCEPT
+                    || meetingInputs.action == MAction.INVITE)) {
+
+                int meetingIndex = meetingInputs.meetingIdx % meetings.size();
+                var meeting = meetings.get(meetingIndex);
+
+                if (meetingInputs.action == MAction.ACCEPT) {
+                    meetingState.recordAcceptance(user.id(), meeting.id());
+                } else if (meetingInputs.action == MAction.INVITE) {
+                    meetingState.recordInvitation(user, meeting.id());
+                }
+            }
+
+            meetingState.assertNoUserHasOverlappingMeetings();
+        }
+
+    }
+
+    @Provide
+    ListArbitrary<Inputs> meetingInputs() {
+
+        var durationMins = Arbitraries.integers().between(1, 60);
+        var startOffsetMins = Arbitraries.integers().between(1, 60);
+        var meetingIdxGen = Arbitraries.integers().greaterOrEqual(0);
+        var userIdxGen = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(2);
+        var axn = Arbitraries.of(
+//            MAction.ACCEPT,
+            MAction.CREATE,
+            MAction.INVITE
+        );
+
+        return Combinators.combine(
+            axn, durationMins, startOffsetMins, meetingIdxGen, userIdxGen
+        ).as(Inputs::new).list();
+    }
+
+}
+
+class Inputs {
+
+    public MAction action;
+    public int durationMins;
+    public int startOffsetMins;
+    public int meetingIdx;
+    public int userIdx;
+
+    public Inputs(MAction action, int durationMins, int startOffsetMins, int meetingIdx,
+        int userIdx) {
+        this.action = action;
+        this.durationMins = durationMins;
+        this.startOffsetMins = startOffsetMins;
+        this.meetingIdx = meetingIdx;
+        this.userIdx = userIdx;
+    }
+
+    @Override
+    public String toString() {
+        if (action == MAction.CREATE) {
+
+            return "Inputs{" +
+                "action=" + action +
+                ", userIdx=" + userIdx +
+                ", startOffsetMins=" + startOffsetMins +
+                ", durationMins=" + durationMins +
+                '}';
+        } else {
+            return "Inputs{" +
+                "action=" + action +
+                ", userIdx=" + userIdx +
+                ", meetingIdx=" + meetingIdx +
+                '}';
+        }
+    }
+
+    enum MAction {
+        CREATE, INVITE, ACCEPT
     }
 }
 
