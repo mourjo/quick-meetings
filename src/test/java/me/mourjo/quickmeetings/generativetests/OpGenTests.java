@@ -132,7 +132,10 @@ public class OpGenTests {
                 var to = LOWER_BOUND_TS.plusMinutes(
                     meetingInputs.startOffsetMins + meetingInputs.durationMins);
 
-                meetingState.recordCreation(user, from, to);
+                var id = meetingState.recordCreation(user, from, to);
+
+                meetingInputs.recordMutation(id);
+
 
             } else if (meetings.size() > 0 &&
                 (meetingInputs.action == MAction.ACCEPT
@@ -168,7 +171,9 @@ public class OpGenTests {
 
         return Combinators.combine(
             axn, durationMins, startOffsetMins, meetingIdxGen, userIdxGen
-        ).as(Inputs::new).list();
+        ).as((a, b, c, d, e) -> new Inputs(
+            a, b, c, d, e, meetingState
+        )).list();
     }
 
 }
@@ -180,33 +185,54 @@ class Inputs {
     public int startOffsetMins;
     public int meetingIdx;
     public int userIdx;
+    MeetingState state;
+    long resultId = -999;
 
     public Inputs(MAction action, int durationMins, int startOffsetMins, int meetingIdx,
-        int userIdx) {
+        int userIdx, MeetingState state) {
         this.action = action;
         this.durationMins = durationMins;
         this.startOffsetMins = startOffsetMins;
         this.meetingIdx = meetingIdx;
         this.userIdx = userIdx;
+        this.state = state;
+    }
+
+    void recordMutation(long i) {
+        resultId = i;
     }
 
     @Override
     public String toString() {
+        var allUsers = state.getAvailableUsers();
+        var user = state.getAvailableUsers().get(userIdx % allUsers.size()).name();
+
+        var from = LOWER_BOUND_TS.plusMinutes(startOffsetMins);
+        var to = LOWER_BOUND_TS.plusMinutes(startOffsetMins + durationMins);
+
         if (action == MAction.CREATE) {
 
             return "Inputs{" +
                 "action=" + action +
-                ", userIdx=" + userIdx +
-                ", startOffsetMins=" + startOffsetMins +
-                ", durationMins=" + durationMins +
+                ", user=" + user +
+                ", from=" + from +
+                ", to=" + to +
+                ", createdId=" + resultId +
                 '}';
+
         } else {
-            return "Inputs{" +
-                "action=" + action +
-                ", userIdx=" + userIdx +
-                ", meetingIdx=" + meetingIdx +
-                '}';
+            var allMeetings = state.getAllMeetings();
+            if (allMeetings.size() > 0) {
+                var meeting = state.getAllMeetings().get(meetingIdx % allMeetings.size()).id();
+
+                return "Inputs{" +
+                    "action=" + action +
+                    ", user=" + user +
+                    ", meeting=" + meeting +
+                    '}';
+            }
         }
+        return "Inputs{NO-OP}";
     }
 
     enum MAction {
@@ -375,7 +401,7 @@ class MeetingState {
         }
     }
 
-    void recordCreation(User user, OffsetDateTime from, OffsetDateTime to) {
+    long recordCreation(User user, OffsetDateTime from, OffsetDateTime to) {
         try {
             var meeting = meetingsService.createMeeting(
                 "name-" + UUID.randomUUID(),
@@ -387,11 +413,12 @@ class MeetingState {
             meetings.add(meeting);
             idToMeeting.put(meeting.id(), meeting);
             userToConfirmedMeetings.get(user.id()).add(meeting);
-
             lastChangeImpacted = true;
+            return meeting.id();
         } catch (OverlappingMeetingsException ignored) {
             lastChangeImpacted = false;
         }
+        return -1L;
     }
 
     boolean recordInvitation(User user, long meetingId) {
