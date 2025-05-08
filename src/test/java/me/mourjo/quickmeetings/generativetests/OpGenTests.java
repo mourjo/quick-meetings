@@ -92,7 +92,9 @@ public class OpGenTests {
         User alice = userService.createUser("alice");
         User bob = userService.createUser("bob");
         User charlie = userService.createUser("charlie");
-        users = List.of(alice, bob, charlie);
+        User debbie = userService.createUser("debbie");
+        User erin = userService.createUser("erin");
+        users = List.of(alice, bob, charlie, debbie, erin);
     }
 
 //    // (shrinking = ShrinkingMode.FULL, afterFailure = AfterFailureMode.RANDOM_SEED)
@@ -163,9 +165,9 @@ public class OpGenTests {
         var durationMins = Arbitraries.integers().between(1, 60);
         var startOffsetMins = Arbitraries.integers().between(1, 60);
         var meetingIdxGen = Arbitraries.integers().greaterOrEqual(0);
-        var userIdxGen = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(2);
+        var userIdxGen = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(users.size() - 1);
         var axn = Arbitraries.of(
-//            MAction.ACCEPT,
+            MAction.ACCEPT,
             MAction.CREATE,
             MAction.INVITE
         );
