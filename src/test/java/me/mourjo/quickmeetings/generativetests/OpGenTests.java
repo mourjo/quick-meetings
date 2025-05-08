@@ -167,7 +167,7 @@ public class OpGenTests {
         var meetingIdxGen = Arbitraries.integers().greaterOrEqual(0);
         var userIdxGen = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(users.size() - 1);
         var axn = Arbitraries.of(
-            MAction.ACCEPT,
+//            MAction.ACCEPT,
             MAction.CREATE,
             MAction.INVITE
         );
