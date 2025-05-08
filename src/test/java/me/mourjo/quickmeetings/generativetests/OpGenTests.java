@@ -3,12 +3,10 @@ package me.mourjo.quickmeetings.generativetests;
 import static me.mourjo.quickmeetings.generativetests.OpGenTests.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,6 +124,8 @@ public class OpGenTests {
             var user = users.get(userIndex);
             var meetings = meetingState.getAllMeetings();
 
+            meetingInputs.recordMutation(user);
+
             if (meetingInputs.action == MAction.CREATE) {
 
                 var from = LOWER_BOUND_TS.plusMinutes(meetingInputs.startOffsetMins);
@@ -143,6 +143,7 @@ public class OpGenTests {
 
                 int meetingIndex = meetingInputs.meetingIdx % meetings.size();
                 var meeting = meetings.get(meetingIndex);
+                meetingInputs.recordMutation(meeting);
 
                 if (meetingInputs.action == MAction.ACCEPT) {
                     meetingState.recordAcceptance(user.id(), meeting.id());
@@ -188,6 +189,9 @@ class Inputs {
     MeetingState state;
     long resultId = -999;
 
+    User user;
+    Meeting meeting;
+
     public Inputs(MAction action, int durationMins, int startOffsetMins, int meetingIdx,
         int userIdx, MeetingState state) {
         this.action = action;
@@ -195,18 +199,26 @@ class Inputs {
         this.startOffsetMins = startOffsetMins;
         this.meetingIdx = meetingIdx;
         this.userIdx = userIdx;
-        this.state = state;
+
     }
 
     void recordMutation(long i) {
-        resultId = i;
+        if (resultId == -999) {
+            resultId = i;
+        }
     }
+
+    void recordMutation(Meeting meeting) {
+        this.meeting = meeting;
+    }
+
+    void recordMutation(User user) {
+        this.user = user;
+    }
+
 
     @Override
     public String toString() {
-        var allUsers = state.getAvailableUsers();
-        var user = state.getAvailableUsers().get(userIdx % allUsers.size()).name();
-
         var from = LOWER_BOUND_TS.plusMinutes(startOffsetMins);
         var to = LOWER_BOUND_TS.plusMinutes(startOffsetMins + durationMins);
 
@@ -214,25 +226,22 @@ class Inputs {
 
             return "Inputs{" +
                 "action=" + action +
-                ", user=" + user +
+                ", user=" + (user == null ? "" : user.name()) +
                 ", from=" + from +
                 ", to=" + to +
                 ", createdId=" + resultId +
                 '}';
 
         } else {
-            var allMeetings = state.getAllMeetings();
-            if (allMeetings.size() > 0) {
-                var meeting = state.getAllMeetings().get(meetingIdx % allMeetings.size()).id();
 
-                return "Inputs{" +
-                    "action=" + action +
-                    ", user=" + user +
-                    ", meeting=" + meeting +
-                    '}';
-            }
+            return "Inputs{" +
+                "action=" + action +
+                ", user=" + (user == null ? "" : user.name()) +
+                ", meeting=" + (meeting == null ? "" : meeting.id()) +
+                '}';
+
         }
-        return "Inputs{NO-OP}";
+
     }
 
     enum MAction {
@@ -384,8 +393,8 @@ class MeetingState {
 
         meetings = new ArrayList<>();
         idToMeeting = new HashMap<>();
-        meetingRepository.deleteAll();
 
+        meetingRepository.deleteAll();
         userMeetingRepository.deleteAll();
 
         for (User u : users) {
@@ -463,18 +472,7 @@ class MeetingState {
     }
 
     List<Meeting> getAllMeetings() {
-        meetings.sort(new Comparator<Meeting>() {
-            @Override
-            public int compare(Meeting o1, Meeting o2) {
-                var duration1 = Duration.between(o1.startAt(), o1.endAt());
-                var duration2 = Duration.between(o2.startAt(), o2.endAt());
-//                return duration2.compareTo(duration1);
 
-                int n = o1.startAt().compareTo(o2.startAt());
-                return n != 0 ? n : duration1.compareTo(duration2);
-
-            }
-        });
         return meetings;
     }
 
