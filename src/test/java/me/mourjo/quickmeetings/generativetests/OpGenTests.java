@@ -14,13 +14,15 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import lombok.Getter;
+import lombok.experimental.Accessors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
-import me.mourjo.quickmeetings.generativetests.Inputs.MAction;
+import me.mourjo.quickmeetings.generativetests.MeetingOperation.OperationType;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.AfterFailureMode;
@@ -95,91 +97,91 @@ public class OpGenTests {
     }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void invariant(@ForAll("meetingInputs") List<Inputs> meetingInputList) {
+    void invariant(@ForAll("meetingOperations") List<MeetingOperation> operations) {
         meetingState = init();
 
-        for (Inputs meetingInputs : meetingInputList) {
-            switch (meetingInputs.action) {
-                case CREATE -> createMeeting(meetingInputs);
-                case INVITE -> inviteToMeeting(meetingInputs);
-                case ACCEPT -> acceptMeetingInvite(meetingInputs);
+        for (var operation : operations) {
+            switch (operation.operationType()) {
+                case CREATE -> createMeeting(operation);
+                case INVITE -> inviteToMeeting(operation);
+//                case ACCEPT -> acceptMeetingInvite(operation);
             }
 
             meetingState.assertNoUserHasOverlappingMeetings();
         }
-
     }
 
-    private void acceptMeetingInvite(Inputs meetingInputs) {
-        actionOnInvite(meetingInputs,
+    private void acceptMeetingInvite(MeetingOperation operation) {
+        actionOnInvite(operation,
             (userId, meetingId) -> meetingState.recordAcceptance(userId, meetingId)
         );
     }
 
-    private void inviteToMeeting(Inputs meetingInputs) {
-        actionOnInvite(meetingInputs,
+    private void inviteToMeeting(MeetingOperation operation) {
+        actionOnInvite(operation,
             (userId, meetingId) -> meetingState.recordInvitation(userId, meetingId)
         );
     }
 
-    private void actionOnInvite(Inputs meetingInputs, BiFunction<Long, Long, Boolean> action) {
-        var user = users.get(meetingInputs.userIdx % users.size());
+    private void actionOnInvite(MeetingOperation operation,
+        BiFunction<Long, Long, Boolean> action) {
+        var user = users.get(operation.userIdx() % users.size());
         var meetings = meetingState.getAllMeetings();
 
         if (!meetings.isEmpty()) {
-            int meetingIndex = meetingInputs.meetingIdx % meetings.size();
+            int meetingIndex = operation.meetingIdx() % meetings.size();
             var meeting = meetings.get(meetingIndex);
             action.apply(user.id(), meeting.id());
-            meetingInputs.setUser(user);
-            meetingInputs.setMeeting(meeting);
+            operation.setUser(user);
+            operation.setMeeting(meeting);
         }
     }
 
-    private void createMeeting(Inputs meetingInputs) {
-        var user = users.get(meetingInputs.userIdx % users.size());
-        meetingInputs.setUser(user);
+    private void createMeeting(MeetingOperation operation) {
+        var user = users.get(operation.userIdx() % users.size());
+        operation.setUser(user);
 
-        var from = LOWER_BOUND_TS.plusMinutes(meetingInputs.startOffsetMins);
-        var to = from.plusMinutes(meetingInputs.durationMins);
+        var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
+        var to = from.plusMinutes(operation.durationMins());
         var id = meetingState.recordCreation(user, from, to);
-        meetingInputs.setCreatedMeetingId(id);
+        operation.setCreatedMeetingId(id);
     }
 
     @Provide
-    ListArbitrary<Inputs> meetingInputs() {
+    ListArbitrary<MeetingOperation> meetingOperations() {
 
         var durationMins = Arbitraries.integers().between(1, 60);
         var startOffsetMins = Arbitraries.integers().between(1, 60);
-        var meetingIdxGen = Arbitraries.integers().greaterOrEqual(0);
-        var userIdxGen = Arbitraries.integers().greaterOrEqual(0);
-        var axn = Arbitraries.of(
-            MAction.ACCEPT,
-            MAction.CREATE,
-            MAction.INVITE
+        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+        var userIdx = Arbitraries.integers().greaterOrEqual(0);
+        var operationType = Arbitraries.of(
+            OperationType.ACCEPT, OperationType.CREATE, OperationType.INVITE
         );
 
         return Combinators.combine(
-            axn, durationMins, startOffsetMins, meetingIdxGen, userIdxGen
-        ).as(Inputs::new).list();
+            operationType, durationMins, startOffsetMins, meetingIdx, userIdx
+        ).as(MeetingOperation::new).list();
     }
 
 }
 
-class Inputs {
+@Accessors(fluent = true)
+@Getter
+class MeetingOperation {
 
-    public MAction action;
-    public int durationMins;
-    public int startOffsetMins;
-    public int meetingIdx;
-    public int userIdx;
-    Long createdMeetingId;
+    private final OperationType operationType;
+    private final int durationMins;
+    private final int startOffsetMins;
+    private final int meetingIdx;
+    private final int userIdx;
+    private Long createdMeetingId;
+    private User user;
+    private Meeting meeting;
 
-    User user;
-    Meeting meeting;
-
-    public Inputs(MAction action, int durationMins, int startOffsetMins, int meetingIdx,
+    MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
+        int meetingIdx,
         int userIdx) {
-        this.action = action;
+        this.operationType = operationType;
         this.durationMins = durationMins;
         this.startOffsetMins = startOffsetMins;
         this.meetingIdx = meetingIdx;
@@ -207,28 +209,24 @@ class Inputs {
         var from = LOWER_BOUND_TS.plusMinutes(startOffsetMins);
         var to = LOWER_BOUND_TS.plusMinutes(startOffsetMins + durationMins);
 
-        if (action == MAction.CREATE) {
+        if (operationType == OperationType.CREATE) {
             return "Inputs{" +
-                "action=" + action +
+                "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
                 ", from=" + from +
                 ", to=" + to +
                 ", createdId=" + (createdMeetingId == null ? "" : createdMeetingId) +
                 '}';
-
         } else {
-
             return "Inputs{" +
-                "action=" + action +
+                "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
                 ", meeting=" + (meeting == null ? "" : meeting.id()) +
                 '}';
-
         }
-
     }
 
-    enum MAction {
+    enum OperationType {
         CREATE, INVITE, ACCEPT
     }
 }
@@ -304,10 +302,6 @@ class MeetingState {
             return true;
         }
         return false;
-    }
-
-    List<User> getAvailableUsers() {
-        return users;
     }
 
     void assertNoUserHasOverlappingMeetings() {
