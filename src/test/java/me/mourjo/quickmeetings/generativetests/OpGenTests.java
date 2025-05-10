@@ -57,44 +57,7 @@ public class OpGenTests {
     MeetingsService meetingsService;
     UserRepository userRepository;
     List<User> users;
-
     MeetingState meetingState;
-
-    public MeetingState init() {
-        var state = new MeetingState(
-            meetingsService,
-            userMeetingRepository,
-            meetingRepository,
-            users
-        );
-
-        return state;
-    }
-
-    @BeforeProperty
-    void createUsers(@Autowired UserService userService, @Autowired UserRepository userRepository,
-        @Autowired MeetingRepository meetingRepository,
-        @Autowired UserMeetingRepository userMeetingRepository,
-        @Autowired MeetingsService meetingsService,
-        @Autowired JdbcTemplate jdbcTemplate) {
-        this.userMeetingRepository = userMeetingRepository;
-        this.meetingRepository = meetingRepository;
-        this.userRepository = userRepository;
-        this.meetingsService = meetingsService;
-
-        this.userMeetingRepository.deleteAll();
-        this.meetingRepository.deleteAll();
-        this.userRepository.deleteAll();
-
-        jdbcTemplate.execute("VACUUM FULL");
-
-        User alice = userService.createUser("alice");
-        User bob = userService.createUser("bob");
-        User charlie = userService.createUser("charlie");
-        User debbie = userService.createUser("debbie");
-        User erin = userService.createUser("erin");
-        users = List.of(alice, bob, charlie, debbie, erin);
-    }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingOperations") List<MeetingOperation> operations) {
@@ -109,6 +72,33 @@ public class OpGenTests {
 
             meetingState.assertNoUserHasOverlappingMeetings();
         }
+    }
+
+    @Provide
+    ListArbitrary<MeetingOperation> meetingOperations() {
+
+        var durationMins = Arbitraries.integers().between(1, 60);
+        var startOffsetMins = Arbitraries.integers().between(1, 60);
+        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+        var userIdx = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(users.size() - 1);
+        var operationType = Arbitraries.of(
+            OperationType.ACCEPT, OperationType.CREATE, OperationType.INVITE
+        );
+
+        return Combinators.combine(
+            operationType, durationMins, startOffsetMins, meetingIdx, userIdx
+        ).as(MeetingOperation::new).list();
+    }
+
+    public MeetingState init() {
+        var state = new MeetingState(
+            meetingsService,
+            userMeetingRepository,
+            meetingRepository,
+            users
+        );
+
+        return state;
     }
 
     private void acceptMeetingInvite(MeetingOperation operation) {
@@ -147,22 +137,30 @@ public class OpGenTests {
         operation.setCreatedMeetingId(id);
     }
 
-    @Provide
-    ListArbitrary<MeetingOperation> meetingOperations() {
+    @BeforeProperty
+    void createUsers(@Autowired UserService userService, @Autowired UserRepository userRepository,
+        @Autowired MeetingRepository meetingRepository,
+        @Autowired UserMeetingRepository userMeetingRepository,
+        @Autowired MeetingsService meetingsService,
+        @Autowired JdbcTemplate jdbcTemplate) {
+        this.userMeetingRepository = userMeetingRepository;
+        this.meetingRepository = meetingRepository;
+        this.userRepository = userRepository;
+        this.meetingsService = meetingsService;
 
-        var durationMins = Arbitraries.integers().between(1, 60);
-        var startOffsetMins = Arbitraries.integers().between(1, 60);
-        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-        var userIdx = Arbitraries.integers().greaterOrEqual(0);
-        var operationType = Arbitraries.of(
-            OperationType.ACCEPT, OperationType.CREATE, OperationType.INVITE
-        );
+        this.userMeetingRepository.deleteAll();
+        this.meetingRepository.deleteAll();
+        this.userRepository.deleteAll();
 
-        return Combinators.combine(
-            operationType, durationMins, startOffsetMins, meetingIdx, userIdx
-        ).as(MeetingOperation::new).list();
+        jdbcTemplate.execute("VACUUM FULL");
+
+        User alice = userService.createUser("alice");
+        User bob = userService.createUser("bob");
+        User charlie = userService.createUser("charlie");
+        User debbie = userService.createUser("debbie");
+        User erin = userService.createUser("erin");
+        users = List.of(alice, bob, charlie, debbie, erin);
     }
-
 }
 
 @Accessors(fluent = true)
