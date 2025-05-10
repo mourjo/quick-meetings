@@ -43,9 +43,28 @@ public class RequestUtils {
         return invitationAcceptanceBody(meetingId, userId);
     }
 
+    public static MockHttpServletRequestBuilder inviteRejectionRequest(long meetingId,
+        long userId) {
+        return invitationRejectionBody(meetingId, userId);
+    }
+
     private static MockHttpServletRequestBuilder invitationAcceptanceBody(long meetingId,
         long userId) {
         return MockMvcRequestBuilders.post("/meeting/accept")
+            .content("""
+                {
+                  "meetingId": %s,
+                  "userId": %s
+                }
+                """.formatted(
+                meetingId,
+                userId
+            )).contentType(MediaType.APPLICATION_JSON);
+    }
+
+    private static MockHttpServletRequestBuilder invitationRejectionBody(long meetingId,
+        long userId) {
+        return MockMvcRequestBuilders.post("/meeting/reject")
             .content("""
                 {
                   "meetingId": %s,

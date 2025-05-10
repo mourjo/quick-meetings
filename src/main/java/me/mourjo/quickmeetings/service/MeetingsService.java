@@ -141,4 +141,8 @@ public class MeetingsService {
         }
         throw new MeetingNotFoundException(meetingId);
     }
+
+    public boolean reject(long meetingId, long userId) {
+        return userMeetingRepository.rejectInvite(meetingId, userId) == 1;
+    }
 }

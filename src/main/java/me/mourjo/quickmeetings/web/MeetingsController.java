@@ -12,6 +12,8 @@ import me.mourjo.quickmeetings.web.dto.MeetingInviteAcceptanceRequest;
 import me.mourjo.quickmeetings.web.dto.MeetingInviteAcceptanceResponse;
 import me.mourjo.quickmeetings.web.dto.MeetingInviteCreationRequest;
 import me.mourjo.quickmeetings.web.dto.MeetingInviteCreationResponse;
+import me.mourjo.quickmeetings.web.dto.MeetingRejectionRequest;
+import me.mourjo.quickmeetings.web.dto.MeetingRejectionResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -78,6 +80,18 @@ public class MeetingsController {
 
         return ResponseEntity.status(400)
             .body(new MeetingInviteAcceptanceResponse("Failed to accept invite"));
+    }
+
+    @PostMapping("/meeting/reject")
+    ResponseEntity<MeetingRejectionResponse> reject(
+        @RequestBody MeetingRejectionRequest request) {
+        if (meetingsService.reject(request.meetingId(), request.userId())) {
+            return ResponseEntity.ok(
+                new MeetingRejectionResponse("Rejected successfully"));
+        }
+
+        return ResponseEntity.status(400)
+            .body(new MeetingRejectionResponse("Failed to reject invite"));
     }
 
 }

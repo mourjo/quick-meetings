@@ -1,7 +1,9 @@
 package me.mourjo.quickmeetings.it;
 
+import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.ACCEPTED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.INVITED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.OWNER;
+import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.REJECTED;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -130,6 +132,33 @@ public class MeetingInviteTests extends BaseIT {
         meetingUtils.validateMeetingRole(aliceMeeting.id(), charlie.id(), INVITED);
         meetingUtils.validateMeetingRole(aliceMeeting.id(), dick.id(), INVITED);
         assertThat(userMeetingRepository.findAllByMeetingId(aliceMeeting.id()).size()).isEqualTo(4);
+    }
+
+    @Test
+    void rejectInvites() {
+        var frankMeeting = meetingsService.createMeeting(
+            "Frank's meeting",
+            frank.id(),
+            now,
+            now.plusMinutes(30)
+        );
+
+        assertThat(userMeetingRepository.count()).isEqualTo(1);
+
+        meetingsService.invite(
+            frankMeeting.id(),
+            List.of(bob.id(), charlie.id())
+        );
+
+        assertThat(meetingsService.reject(frankMeeting.id(), bob.id())).isTrue();
+        meetingUtils.validateMeetingRole(frankMeeting.id(), frank.id(), OWNER);
+        meetingUtils.validateMeetingRole(frankMeeting.id(), bob.id(), REJECTED);
+        meetingUtils.validateMeetingRole(frankMeeting.id(), charlie.id(), INVITED);
+
+        meetingsService.accept(frankMeeting.id(), charlie.id());
+        meetingUtils.validateMeetingRole(frankMeeting.id(), charlie.id(), ACCEPTED);
+
+        assertThat(meetingsService.reject(frankMeeting.id(), charlie.id())).isTrue();
     }
 
     @Test
