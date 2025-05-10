@@ -6,7 +6,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,16 +51,16 @@ public class OperationsGenTests {
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingOperations") List<MeetingOperation> operations) {
-        var meetingState = init();
+        var state = init();
 
         for (var operation : operations) {
             switch (operation.operationType()) {
-                case CREATE -> createMeeting(meetingState, operation);
-                case INVITE -> inviteToMeeting(meetingState, operation);
-//                case ACCEPT -> acceptMeetingInvite(meetingState, operation);
+                case CREATE -> createMeeting(state, operation);
+                case INVITE -> inviteToMeeting(state, operation);
+//                case ACCEPT -> acceptMeetingInvite(state, operation);
             }
 
-            meetingState.assertNoUserHasOverlappingMeetings();
+            state.assertNoUserHasOverlappingMeetings();
         }
     }
 
@@ -90,18 +89,18 @@ public class OperationsGenTests {
         );
     }
 
-    private void acceptMeetingInvite(MeetingState meetingState, MeetingOperation operation) {
-        actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
+    private void acceptMeetingInvite(MeetingState state, MeetingOperation operation) {
+        actionOnInvite(operation, state, state::recordAcceptance);
     }
 
-    private void inviteToMeeting(MeetingState meetingState, MeetingOperation operation) {
-        actionOnInvite(operation, meetingState, meetingState::recordInvitation);
+    private void inviteToMeeting(MeetingState state, MeetingOperation operation) {
+        actionOnInvite(operation, state, state::recordInvitation);
     }
 
-    private void actionOnInvite(MeetingOperation operation, MeetingState meetingState,
+    private void actionOnInvite(MeetingOperation operation, MeetingState state,
         BiFunction<Long, Long, Boolean> action) {
         var user = operation.user();
-        var meetings = meetingState.getAllMeetings();
+        var meetings = state.getAllMeetings();
 
         if (!meetings.isEmpty()) {
             int meetingIndex = operation.meetingIdx() % meetings.size();
@@ -112,11 +111,11 @@ public class OperationsGenTests {
         }
     }
 
-    private void createMeeting(MeetingState meetingState, MeetingOperation operation) {
+    private void createMeeting(MeetingState state, MeetingOperation operation) {
         var user = operation.user();
         var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
         var to = from.plusMinutes(operation.durationMins());
-        var id = meetingState.recordCreation(user, from, to);
+        var id = state.recordCreation(user, from, to);
         operation.setCreatedMeetingId(id);
     }
 
@@ -214,7 +213,6 @@ class MeetingState {
 
     private final MeetingsService meetingsService;
     private final List<User> users;
-    private final List<Meeting> meetings;
     private final Map<Long, Meeting> idToMeeting;
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
 
@@ -225,7 +223,6 @@ class MeetingState {
         this.meetingsService = meetingsService;
         this.users = users;
 
-        meetings = new ArrayList<>();
         idToMeeting = new HashMap<>();
 
         meetingRepository.deleteAll();
@@ -253,7 +250,6 @@ class MeetingState {
                 to
             );
 
-            meetings.add(meeting);
             idToMeeting.put(meeting.id(), meeting);
             userToConfirmedMeetings.get(user.id()).add(meeting);
             return meeting.id();
@@ -288,7 +284,7 @@ class MeetingState {
     }
 
     List<Meeting> getAllMeetings() {
-        return meetings;
+        return idToMeeting.values().stream().toList();
     }
 
     private boolean hasOverlap() {
