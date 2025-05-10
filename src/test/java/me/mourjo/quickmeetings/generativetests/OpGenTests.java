@@ -57,17 +57,16 @@ public class OpGenTests {
     MeetingsService meetingsService;
     UserRepository userRepository;
     List<User> users;
-    MeetingState meetingState;
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void invariant(@ForAll("meetingOperations") List<MeetingOperation> operations) {
-        meetingState = init();
+        var meetingState = init();
 
         for (var operation : operations) {
             switch (operation.operationType()) {
-                case CREATE -> createMeeting(operation);
-                case INVITE -> inviteToMeeting(operation);
-//                case ACCEPT -> acceptMeetingInvite(operation);
+                case CREATE -> createMeeting(meetingState, operation);
+                case INVITE -> inviteToMeeting(meetingState, operation);
+//                case ACCEPT -> acceptMeetingInvite(meetingState, operation);
             }
 
             meetingState.assertNoUserHasOverlappingMeetings();
@@ -101,19 +100,15 @@ public class OpGenTests {
         return state;
     }
 
-    private void acceptMeetingInvite(MeetingOperation operation) {
-        actionOnInvite(operation,
-            (userId, meetingId) -> meetingState.recordAcceptance(userId, meetingId)
-        );
+    private void acceptMeetingInvite(MeetingState meetingState, MeetingOperation operation) {
+        actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
     }
 
-    private void inviteToMeeting(MeetingOperation operation) {
-        actionOnInvite(operation,
-            (userId, meetingId) -> meetingState.recordInvitation(userId, meetingId)
-        );
+    private void inviteToMeeting(MeetingState meetingState, MeetingOperation operation) {
+        actionOnInvite(operation, meetingState, meetingState::recordInvitation);
     }
 
-    private void actionOnInvite(MeetingOperation operation,
+    private void actionOnInvite(MeetingOperation operation, MeetingState meetingState,
         BiFunction<Long, Long, Boolean> action) {
         var user = users.get(operation.userIdx() % users.size());
         var meetings = meetingState.getAllMeetings();
@@ -127,7 +122,7 @@ public class OpGenTests {
         }
     }
 
-    private void createMeeting(MeetingOperation operation) {
+    private void createMeeting(MeetingState meetingState, MeetingOperation operation) {
         var user = users.get(operation.userIdx() % users.size());
         operation.setUser(user);
 
