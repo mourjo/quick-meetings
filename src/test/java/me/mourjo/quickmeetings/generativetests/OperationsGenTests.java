@@ -13,11 +13,13 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
@@ -50,17 +52,27 @@ public class OperationsGenTests {
     List<User> users;
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void invariant(@ForAll("meetingOperations") List<MeetingOperation> operations) {
+    void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
         var state = init();
+        executeOperations(state, ops);
+        state.assertNoUserHasOverlappingMeetings();
+    }
 
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    void everyMeetingHasAnOwner(@ForAll("meetingOperations") List<MeetingOperation> ops) {
+        var state = init();
+        executeOperations(state, ops);
+        state.assertEveryMeetingHasAnOwner();
+    }
+
+    void executeOperations(MeetingState state, List<MeetingOperation> operations) {
         for (var operation : operations) {
             switch (operation.operationType()) {
                 case CREATE -> createMeeting(state, operation);
                 case INVITE -> inviteToMeeting(state, operation);
                 case ACCEPT -> acceptMeetingInvite(state, operation);
+                case REJECT -> rejectMeetingInvite(state, operation);
             }
-
-            state.assertNoUserHasOverlappingMeetings();
         }
     }
 
@@ -71,9 +83,7 @@ public class OperationsGenTests {
         var startOffsetMins = Arbitraries.integers().between(1, 60);
         var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
         var user = Arbitraries.of(users);
-        var operationType = Arbitraries.of(
-            OperationType.ACCEPT, OperationType.CREATE, OperationType.INVITE
-        );
+        var operationType = Arbitraries.of(OperationType.values());
 
         return Combinators.combine(
             operationType, durationMins, startOffsetMins, meetingIdx, user
@@ -91,6 +101,10 @@ public class OperationsGenTests {
 
     private void acceptMeetingInvite(MeetingState state, MeetingOperation operation) {
         actionOnInvite(operation, state, state::recordAcceptance);
+    }
+
+    private void rejectMeetingInvite(MeetingState state, MeetingOperation operation) {
+        actionOnInvite(operation, state, state::recordRejection);
     }
 
     private void inviteToMeeting(MeetingState state, MeetingOperation operation) {
@@ -205,12 +219,14 @@ class MeetingOperation {
     }
 
     enum OperationType {
-        CREATE, INVITE, ACCEPT
+        CREATE, INVITE, ACCEPT, REJECT
     }
 }
 
 class MeetingState {
 
+    private final UserMeetingRepository userMeetingRepository;
+    private final MeetingRepository meetingRepository;
     private final MeetingsService meetingsService;
     private final List<User> users;
     private final Map<Long, Meeting> idToMeeting;
@@ -220,6 +236,8 @@ class MeetingState {
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
         List<User> users) {
 
+        this.userMeetingRepository = userMeetingRepository;
+        this.meetingRepository = meetingRepository;
         this.meetingsService = meetingsService;
         this.users = users;
 
@@ -274,11 +292,7 @@ class MeetingState {
         try {
             if (meetingsService.accept(meetingId, userId)) {
                 var meeting = idToMeeting.get(meetingId);
-                try {
-                    userToConfirmedMeetings.get(userId).add(meeting);
-                } catch (OverlappingMeetingsException ignored) {
-
-                }
+                userToConfirmedMeetings.get(userId).add(meeting);
                 return true;
             }
         } catch (OverlappingMeetingsException ignored) {
@@ -287,8 +301,28 @@ class MeetingState {
         return false;
     }
 
+    boolean recordRejection(long userId, long meetingId) {
+        if (meetingsService.reject(meetingId, userId)) {
+            var meeting = idToMeeting.get(meetingId);
+            userToConfirmedMeetings.get(userId).remove(meeting);
+            return true;
+        }
+
+        return false;
+    }
+
     void assertNoUserHasOverlappingMeetings() {
         assertThat(hasOverlap()).isFalse();
+    }
+
+    void assertEveryMeetingHasAnOwner() {
+        var meetingIdsWithOwners = userMeetingRepository.findAll().stream()
+            .filter(um -> um.userRole() == RoleOfUser.OWNER)
+            .map(um -> um.meetingId())
+            .collect(Collectors.toSet());
+        var meetingIds = meetingRepository.findAll().stream().map(Meeting::id)
+            .collect(Collectors.toSet());
+        assertThat(meetingIdsWithOwners).isEqualTo(meetingIds);
     }
 
     List<Meeting> getAllMeetings() {
