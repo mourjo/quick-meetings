@@ -54,25 +54,24 @@ public class OperationsGenTests {
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
         var state = init();
-        executeOperations(state, ops);
-        state.assertNoUserHasOverlappingMeetings();
+        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
     }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void everyMeetingHasAnOwner(@ForAll("meetingOperations") List<MeetingOperation> ops) {
         var state = init();
-        executeOperations(state, ops);
-        state.assertEveryMeetingHasAnOwner();
+        executeOperations(state, ops, state::assertEveryMeetingHasAnOwner);
     }
 
-    void executeOperations(MeetingState state, List<MeetingOperation> operations) {
-        for (var operation : operations) {
+    void executeOperations(MeetingState state, List<MeetingOperation> ops, Runnable invariant) {
+        for (var operation : ops) {
             switch (operation.operationType()) {
                 case CREATE -> createMeeting(state, operation);
                 case INVITE -> inviteToMeeting(state, operation);
                 case ACCEPT -> acceptMeetingInvite(state, operation);
                 case REJECT -> rejectMeetingInvite(state, operation);
             }
+            invariant.run();
         }
     }
 
@@ -153,9 +152,7 @@ public class OperationsGenTests {
         User alice = userService.createUser("alice");
         User bob = userService.createUser("bob");
         User charlie = userService.createUser("charlie");
-        User debbie = userService.createUser("debbie");
-        User erin = userService.createUser("erin");
-        users = List.of(alice, bob, charlie, debbie, erin);
+        users = List.of(alice, bob, charlie);
     }
 }
 
