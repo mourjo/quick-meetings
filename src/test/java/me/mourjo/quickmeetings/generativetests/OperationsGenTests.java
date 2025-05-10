@@ -1,6 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
-import static me.mourjo.quickmeetings.generativetests.OpGenTests.LOWER_BOUND_TS;
+import static me.mourjo.quickmeetings.generativetests.OperationsGenTests.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.LocalDateTime;
@@ -40,18 +40,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @JqwikSpringSupport
 @SpringBootTest
-public class OpGenTests {
+public class OperationsGenTests {
 
-    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(
-        2025,
-        6,
-        9,
-        10,
-        20,
-        0,
-        0
-    ).atOffset(ZoneOffset.UTC);
-
+    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
+        .atOffset(ZoneOffset.UTC);
     UserMeetingRepository userMeetingRepository;
     MeetingRepository meetingRepository;
     MeetingsService meetingsService;
@@ -79,25 +71,23 @@ public class OpGenTests {
         var durationMins = Arbitraries.integers().between(1, 60);
         var startOffsetMins = Arbitraries.integers().between(1, 60);
         var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-        var userIdx = Arbitraries.integers().greaterOrEqual(0).lessOrEqual(users.size() - 1);
+        var user = Arbitraries.of(users);
         var operationType = Arbitraries.of(
             OperationType.ACCEPT, OperationType.CREATE, OperationType.INVITE
         );
 
         return Combinators.combine(
-            operationType, durationMins, startOffsetMins, meetingIdx, userIdx
+            operationType, durationMins, startOffsetMins, meetingIdx, user
         ).as(MeetingOperation::new).list();
     }
 
     public MeetingState init() {
-        var state = new MeetingState(
+        return new MeetingState(
             meetingsService,
             userMeetingRepository,
             meetingRepository,
             users
         );
-
-        return state;
     }
 
     private void acceptMeetingInvite(MeetingState meetingState, MeetingOperation operation) {
@@ -110,7 +100,7 @@ public class OpGenTests {
 
     private void actionOnInvite(MeetingOperation operation, MeetingState meetingState,
         BiFunction<Long, Long, Boolean> action) {
-        var user = users.get(operation.userIdx() % users.size());
+        var user = operation.user();
         var meetings = meetingState.getAllMeetings();
 
         if (!meetings.isEmpty()) {
@@ -123,9 +113,7 @@ public class OpGenTests {
     }
 
     private void createMeeting(MeetingState meetingState, MeetingOperation operation) {
-        var user = users.get(operation.userIdx() % users.size());
-        operation.setUser(user);
-
+        var user = operation.user();
         var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
         var to = from.plusMinutes(operation.durationMins());
         var id = meetingState.recordCreation(user, from, to);
@@ -166,19 +154,17 @@ class MeetingOperation {
     private final int durationMins;
     private final int startOffsetMins;
     private final int meetingIdx;
-    private final int userIdx;
     private Long createdMeetingId;
     private User user;
     private Meeting meeting;
 
     MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
-        int meetingIdx,
-        int userIdx) {
+        int meetingIdx, User user) {
         this.operationType = operationType;
         this.durationMins = durationMins;
         this.startOffsetMins = startOffsetMins;
         this.meetingIdx = meetingIdx;
-        this.userIdx = userIdx;
+        this.user = user;
 
     }
 
