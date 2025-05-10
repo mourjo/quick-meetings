@@ -123,6 +123,22 @@ public class MeetingsService {
     }
 
     public boolean accept(long meetingId, long userId) {
-        return userMeetingRepository.acceptInvite(meetingId, userId) == 1;
+        if (!userRepository.existsById(userId)) {
+            throw new UserNotFoundException(userId);
+        }
+
+        var meetingMaybe = meetingRepository.findById(meetingId);
+        if (meetingMaybe.isPresent()) {
+            var meeting = meetingMaybe.get();
+            var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(userId,
+                meeting.startAt(), meeting.endAt());
+
+            if (!overlappingMeetings.isEmpty()) {
+                throw new OverlappingMeetingsException();
+            }
+
+            return userMeetingRepository.acceptInvite(meetingId, userId) == 1;
+        }
+        throw new MeetingNotFoundException(meetingId);
     }
 }

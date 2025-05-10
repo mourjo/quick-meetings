@@ -4,9 +4,13 @@ import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.ACCEPTED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.INVITED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.OWNER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.util.List;
 import java.util.Set;
+import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
+import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
+import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 
 public class MeetingInviteAcceptanceTests extends BaseIT {
@@ -25,10 +29,11 @@ public class MeetingInviteAcceptanceTests extends BaseIT {
             bob.id()
         )).isTrue();
 
-        assertThat(meetingsService.accept(
-            aliceMeetingId,
-            bob.id()
-        )).isFalse();
+        assertThatExceptionOfType(OverlappingMeetingsException.class).isThrownBy(
+            () -> assertThat(meetingsService.accept(
+                aliceMeetingId,
+                bob.id()
+            )));
 
         var activeUsers = Set.of(alice.id(), bob.id(), charlie.id());
 
@@ -65,18 +70,21 @@ public class MeetingInviteAcceptanceTests extends BaseIT {
             erin.id()
         )).isFalse();
 
-        assertThat(meetingsService.accept(
-            aliceMeetingId,
-            9991L // unknown user
-        )).isFalse();
+        assertThatExceptionOfType(UserNotFoundException.class).isThrownBy(
+            () -> meetingsService.accept(
+                aliceMeetingId,
+                9991L // unknown meeting
+            )
+        );
     }
 
     @Test
     void doNotAcceptUnknownMeeting() {
-        assertThat(meetingsService.accept(
-            9929L, // unknown meeting
-            frank.id()
-        )).isFalse();
+        assertThatExceptionOfType(MeetingNotFoundException.class).isThrownBy(
+            () -> meetingsService.accept(
+                9929L, // unknown meeting
+                frank.id()
+            ));
     }
 
     long createAliceMeeting() {

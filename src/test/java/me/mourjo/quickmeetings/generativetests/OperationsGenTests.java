@@ -57,7 +57,7 @@ public class OperationsGenTests {
             switch (operation.operationType()) {
                 case CREATE -> createMeeting(state, operation);
                 case INVITE -> inviteToMeeting(state, operation);
-//                case ACCEPT -> acceptMeetingInvite(state, operation);
+                case ACCEPT -> acceptMeetingInvite(state, operation);
             }
 
             state.assertNoUserHasOverlappingMeetings();
@@ -271,10 +271,18 @@ class MeetingState {
 
 
     boolean recordAcceptance(long userId, long meetingId) {
-        if (meetingsService.accept(meetingId, userId)) {
-            var meeting = idToMeeting.get(meetingId);
-            userToConfirmedMeetings.get(userId).add(meeting);
-            return true;
+        try {
+            if (meetingsService.accept(meetingId, userId)) {
+                var meeting = idToMeeting.get(meetingId);
+                try {
+                    userToConfirmedMeetings.get(userId).add(meeting);
+                } catch (OverlappingMeetingsException ignored) {
+
+                }
+                return true;
+            }
+        } catch (OverlappingMeetingsException ignored) {
+
         }
         return false;
     }

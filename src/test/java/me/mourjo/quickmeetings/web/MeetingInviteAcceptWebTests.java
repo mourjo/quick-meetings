@@ -36,21 +36,24 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
             RequestUtils.inviteAcceptanceRequest(
                 aliceMeeting.id(),
                 dick.id()
-            )
+            ),
+            "Failed to accept invite"
         );
 
         assertFailure(
             RequestUtils.inviteAcceptanceRequest(
                 928374L, // non-existent meeting
                 bob.id()
-            )
+            ),
+            "Meeting 928374 not found"
         );
 
         assertFailure(
             RequestUtils.inviteAcceptanceRequest(
                 aliceMeeting.id(),
                 alice.id()
-            )
+            ),
+            "Overlapping meetings exist"
         );
 
     }
@@ -62,8 +65,8 @@ public class MeetingInviteAcceptWebTests extends BaseIT {
     }
 
     @SneakyThrows
-    void assertFailure(MockHttpServletRequestBuilder req) {
+    void assertFailure(MockHttpServletRequestBuilder req, String message) {
         var result = mockMvc.perform(req).andExpect(status().is4xxClientError()).andReturn();
-        assertThat(readJsonPath(result, "$.message")).isEqualTo("Failed to accept invite");
+        assertThat(readJsonPath(result, "$.message")).isEqualTo(message);
     }
 }
