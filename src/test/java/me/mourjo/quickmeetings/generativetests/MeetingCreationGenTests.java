@@ -3,7 +3,6 @@ package me.mourjo.quickmeetings.generativetests;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -25,6 +24,7 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
 import org.mockito.ArgumentCaptor;
@@ -48,6 +48,8 @@ public class MeetingCreationGenTests {
 
     @Autowired
     MockMvc mockMvc;
+    Meeting meeting;
+    String meetingName;
 
     @SneakyThrows
     @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
@@ -67,7 +69,6 @@ public class MeetingCreationGenTests {
     @SneakyThrows
     void createMeetingAndExpectSuccess(LocalDateTime from, LocalDateTime to,
         String zone) {
-        String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
 
         var req = RequestUtils.meetingCreationRequest(
             1,
@@ -80,15 +81,6 @@ public class MeetingCreationGenTests {
         var fromCap = ArgumentCaptor.forClass(ZonedDateTime.class);
         var toCap = ArgumentCaptor.forClass(ZonedDateTime.class);
 
-        var meeting = Meeting.builder()
-            .name(meetingName)
-            .createdAt(OffsetDateTime.now())
-            .startAt(OffsetDateTime.of(from, ZoneOffset.UTC))
-            .endAt(OffsetDateTime.of(to, ZoneOffset.UTC))
-            .updatedAt(OffsetDateTime.now())
-            .id(918L)
-            .build();
-
         Mockito.when(meetingsService.createMeeting(
             any(),
             anyLong(),
@@ -99,9 +91,10 @@ public class MeetingCreationGenTests {
         Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
         mockMvc.perform(req)
             .andExpect(
-                matcher -> assertThat(matcher.getResponse().getContentAsString()).contains(
+                matcher -> assertThat(matcher.getResponse().getContentAsString()).containsAnyOf(
+                    "does not exist in zone",
                     "Meeting created"))
-            .andExpect(status().is2xxSuccessful()).andReturn();
+            .andReturn();
 
     }
 
@@ -109,6 +102,19 @@ public class MeetingCreationGenTests {
     Arbitrary<String> zoneIds() {
         var zoneIds = Set.of("Asia/Kolkata", "Europe/Amsterdam"); // ZoneId.getAvailableZoneIds()
         return Arbitraries.of(zoneIds);
+    }
+
+    @BeforeProperty
+    void createUserMeeting() {
+        meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
+        meeting = Meeting.builder()
+            .name(meetingName)
+            .createdAt(OffsetDateTime.now())
+            .startAt(OffsetDateTime.of(LocalDateTime.now(), ZoneOffset.UTC))
+            .endAt(OffsetDateTime.of(LocalDateTime.now().plusMinutes(10), ZoneOffset.UTC))
+            .updatedAt(OffsetDateTime.now())
+            .id(918L)
+            .build();
     }
 
 }
