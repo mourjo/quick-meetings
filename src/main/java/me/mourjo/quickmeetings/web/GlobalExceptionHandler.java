@@ -1,8 +1,8 @@
 package me.mourjo.quickmeetings.web;
 
 import jakarta.servlet.ServletException;
+import me.mourjo.quickmeetings.exceptions.GenericMeetingException;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
-import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.exceptions.UserNameNotAllowedException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import me.mourjo.quickmeetings.web.dto.ErrorResponse;
@@ -31,8 +31,8 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("Meeting %s not found".formatted(uex.getMeetingId())));
     }
 
-    @ExceptionHandler(OverlappingMeetingsException.class)
-    public ResponseEntity<ErrorResponse> overlappingMeetings(OverlappingMeetingsException ex) {
+    @ExceptionHandler(GenericMeetingException.class)
+    public ResponseEntity<ErrorResponse> handleMeetingExceptions(GenericMeetingException ex) {
         return ResponseEntity
             .status(400)
             .body(new ErrorResponse(ex.getMessage()));
