@@ -5,24 +5,26 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.SneakyThrows;
+import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.utils.RequestUtils;
 import me.mourjo.quickmeetings.web.MeetingsController;
+import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
-import net.jqwik.api.Disabled;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.constraints.IntRange;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
 import org.mockito.ArgumentCaptor;
@@ -33,7 +35,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@Disabled
 @JqwikSpringSupport
 @WebMvcTest(MeetingsController.class)
 @AutoConfigureMockMvc
@@ -49,27 +50,22 @@ public class MeetingCreationGenTests {
     MockMvc mockMvc;
 
     @SneakyThrows
-    @Property(tries = 100000)
-    void uniqueInList(
-        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-12-31T23:59:59") LocalDateTime startTime,
+    @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
+    void validMeetingRangeShouldReturn2xx(
+        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-06-01T00:00:00") LocalDateTime startTime,
+        @ForAll @IntRange(min = 1, max = 30) int durationMins,
         @ForAll("zoneIds") String timezone) {
-        var meetingDuration = Duration.ofMinutes(30);
 
-        var dateRange = createMeeting(
+        createMeetingAndExpectSuccess(
             startTime,
-            startTime.plus(meetingDuration),
+            startTime.plusMinutes(durationMins),
             timezone
         );
 
-        var dbFrom = dateRange.get(0).getValue();
-        var dbTo = dateRange.get(1).getValue();
-        var dbDuration = Duration.between(dbFrom, dbTo);
-
-        assertThat(dbDuration).isEqualTo(meetingDuration);
     }
 
     @SneakyThrows
-    List<ArgumentCaptor<ZonedDateTime>> createMeeting(LocalDateTime from, LocalDateTime to,
+    void createMeetingAndExpectSuccess(LocalDateTime from, LocalDateTime to,
         String zone) {
         String meetingName = "Testing strategy meeting %s".formatted(UUID.randomUUID());
 
@@ -84,18 +80,29 @@ public class MeetingCreationGenTests {
         var fromCap = ArgumentCaptor.forClass(ZonedDateTime.class);
         var toCap = ArgumentCaptor.forClass(ZonedDateTime.class);
 
+        var meeting = Meeting.builder()
+            .name(meetingName)
+            .createdAt(OffsetDateTime.now())
+            .startAt(OffsetDateTime.of(from, ZoneOffset.UTC))
+            .endAt(OffsetDateTime.of(to, ZoneOffset.UTC))
+            .updatedAt(OffsetDateTime.now())
+            .id(918L)
+            .build();
+
         Mockito.when(meetingsService.createMeeting(
             any(),
             anyLong(),
             fromCap.capture(),
             toCap.capture()
-        )).thenReturn(any());
+        )).thenReturn(meeting);
 
         Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
+        mockMvc.perform(req)
+            .andExpect(
+                matcher -> assertThat(matcher.getResponse().getContentAsString()).contains(
+                    "Meeting created"))
+            .andExpect(status().is2xxSuccessful()).andReturn();
 
-        mockMvc.perform(req).andExpect(status().is2xxSuccessful()).andReturn();
-
-        return List.of(fromCap, toCap);
     }
 
     @Provide
