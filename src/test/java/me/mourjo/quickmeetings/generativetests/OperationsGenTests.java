@@ -19,6 +19,7 @@ import lombok.experimental.Accessors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
+import me.mourjo.quickmeetings.db.UserMeeting;
 import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
@@ -77,12 +78,13 @@ public class OperationsGenTests {
 
     @Provide
     ListArbitrary<MeetingOperation> meetingOperations() {
+        var user = Arbitraries.of(users);
+        var operationType = Arbitraries.of(OperationType.values());
+
+        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
 
         var durationMins = Arbitraries.integers().between(1, 60);
         var startOffsetMins = Arbitraries.integers().between(1, 60);
-        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-        var user = Arbitraries.of(users);
-        var operationType = Arbitraries.of(OperationType.values());
 
         return Combinators.combine(
             operationType, durationMins, startOffsetMins, meetingIdx, user
@@ -315,10 +317,12 @@ class MeetingState {
     void assertEveryMeetingHasAnOwner() {
         var meetingIdsWithOwners = userMeetingRepository.findAll().stream()
             .filter(um -> um.userRole() == RoleOfUser.OWNER)
-            .map(um -> um.meetingId())
+            .map(UserMeeting::meetingId)
             .collect(Collectors.toSet());
+
         var meetingIds = meetingRepository.findAll().stream().map(Meeting::id)
             .collect(Collectors.toSet());
+
         assertThat(meetingIdsWithOwners).isEqualTo(meetingIds);
     }
 
