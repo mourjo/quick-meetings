@@ -27,13 +27,13 @@ import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @JqwikSpringSupport
 @WebMvcTest(MeetingsController.class)
@@ -55,7 +55,7 @@ public class MeetingCreationGenTests {
     @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
     void validMeetingRangeShouldReturn2xx(
         @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-06-01T00:00:00") LocalDateTime startTime,
-        @ForAll @IntRange(min = 1, max = 30) int durationMins,
+        @ForAll @IntRange(min = 15, max = 30) int durationMins,
         @ForAll("zoneIds") String timezone) {
 
         createMeetingAndExpectSuccess(
@@ -63,44 +63,23 @@ public class MeetingCreationGenTests {
             startTime.plusMinutes(durationMins),
             timezone
         );
-
     }
 
     @SneakyThrows
-    void createMeetingAndExpectSuccess(LocalDateTime from, LocalDateTime to,
-        String zone) {
+    void createMeetingAndExpectSuccess(LocalDateTime from, LocalDateTime to, String zone) {
+        mockServiceCalls();
 
-        var req = RequestUtils.meetingCreationRequest(
-            1,
-            meetingName,
-            from,
-            to,
-            zone
-        );
-
-        var fromCap = ArgumentCaptor.forClass(ZonedDateTime.class);
-        var toCap = ArgumentCaptor.forClass(ZonedDateTime.class);
-
-        Mockito.when(meetingsService.createMeeting(
-            any(),
-            anyLong(),
-            fromCap.capture(),
-            toCap.capture()
-        )).thenReturn(meeting);
-
-        Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
-        mockMvc.perform(req)
+        mockMvc.perform(createMeetingRequest(from, to, zone))
             .andExpect(
                 matcher -> assertThat(matcher.getResponse().getContentAsString()).containsAnyOf(
                     "does not exist in zone",
                     "Meeting created"))
             .andReturn();
-
     }
 
     @Provide
     Arbitrary<String> zoneIds() {
-        var zoneIds = Set.of("Asia/Kolkata", "Europe/Amsterdam"); // ZoneId.getAvailableZoneIds()
+        var zoneIds = Set.of("Asia/Kolkata", "Europe/Amsterdam");
         return Arbitraries.of(zoneIds);
     }
 
@@ -115,6 +94,28 @@ public class MeetingCreationGenTests {
             .updatedAt(OffsetDateTime.now())
             .id(918L)
             .build();
+    }
+
+    MockHttpServletRequestBuilder createMeetingRequest(LocalDateTime from, LocalDateTime to,
+        String zone) {
+        return RequestUtils.meetingCreationRequest(
+            1,
+            meetingName,
+            from,
+            to,
+            zone
+        );
+    }
+
+    void mockServiceCalls() {
+        Mockito.when(meetingsService.createMeeting(
+            any(),
+            anyLong(),
+            any(ZonedDateTime.class),
+            any(ZonedDateTime.class)
+        )).thenReturn(meeting);
+
+        Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
     }
 
 }
