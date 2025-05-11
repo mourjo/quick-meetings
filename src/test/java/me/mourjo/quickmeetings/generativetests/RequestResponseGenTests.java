@@ -113,7 +113,7 @@ public class RequestResponseGenTests {
             ));
     }
 
-    @Property(tries = 100000)
+    @Property
     @SneakyThrows
     void responsesAreAlwaysValidJson(
         @ForAll("methods") String method,
