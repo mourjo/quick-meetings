@@ -1,5 +1,6 @@
 package me.mourjo.quickmeetings.web;
 
+import me.mourjo.quickmeetings.exceptions.UserNameNotAllowedException;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.web.dto.UserCreationResponse;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +17,12 @@ public class UsersController {
     }
 
     @PostMapping("/user")
-    ResponseEntity<UserCreationResponse> createUser(String name) {
-        var dbUser = userService.createUser(name);
-        return ResponseEntity.ok(new UserCreationResponse(dbUser.id(), name));
+    ResponseEntity<UserCreationResponse> createUser(String name)
+        throws UserNameNotAllowedException {
+        if (name != null && !name.isEmpty()) {
+            var dbUser = userService.createUser(name);
+            return ResponseEntity.ok(new UserCreationResponse(dbUser.id(), name));
+        }
+        throw new UserNameNotAllowedException(name);
     }
 }

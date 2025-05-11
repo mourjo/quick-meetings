@@ -1,12 +1,18 @@
 package me.mourjo.quickmeetings.web;
 
+import jakarta.servlet.ServletException;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
+import me.mourjo.quickmeetings.exceptions.UserNameNotAllowedException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
 import me.mourjo.quickmeetings.web.dto.ErrorResponse;
+import org.springframework.core.NestedRuntimeException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,6 +33,31 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(OverlappingMeetingsException.class)
     public ResponseEntity<ErrorResponse> overlappingMeetings(OverlappingMeetingsException ex) {
+        return ResponseEntity
+            .status(400)
+            .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(UserNameNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleUserNameNotAllowedException(
+        UserNameNotAllowedException ex) {
+        return ResponseEntity
+            .status(400)
+            .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(exception = {NoResourceFoundException.class,
+        HttpRequestMethodNotSupportedException.class})
+    public ResponseEntity<ErrorResponse> handleGeneric404s(Exception ex) {
+        return ResponseEntity
+            .status(404)
+            .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(exception = {ServletException.class, RuntimeException.class,
+        NestedRuntimeException.class, HttpMessageNotReadableException.class,
+        IllegalArgumentException.class, Exception.class})
+    public ResponseEntity<ErrorResponse> handleRuntimeExceptions(Exception ex) {
         return ResponseEntity
             .status(400)
             .body(new ErrorResponse(ex.getMessage()));

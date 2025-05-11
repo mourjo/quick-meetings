@@ -12,6 +12,37 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 public class RequestUtils {
 
+
+    public static final String MEETING_INVITE_UPDATE_BODY_JSON = """
+        {
+          "meetingId": %s,
+          "userId": %s
+        }
+        """;
+    public static final String MEETING_INVITE_BODY = """
+        {
+          "meetingId": %s,
+          "invitees": %s
+        }
+        """;
+    public static String MEETING_CREATION_BODY_JSON = """
+        {
+          "userId": %d,
+          "name": "%s",
+          "duration": {
+            "from": {
+              "date": "%s",
+              "time": "%s"
+            },
+            "to": {
+              "date": "%s",
+              "time": "%s"
+            }
+          },
+          "timezone": "%s"
+        }
+        """;
+
     public static MockHttpServletRequestBuilder meetingCreationRequest(long userId,
         String meetingName,
         TemporalAccessor from, TemporalAccessor to, String timezone) {
@@ -22,7 +53,7 @@ public class RequestUtils {
         var toDate = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(to);
         var toTime = DateTimeFormatter.ofPattern("HH:mm:ss").format(to);
 
-        return meetingCreationBody(
+        return rawMeetingCreationBody(
             userId,
             meetingName,
             fromDate,
@@ -51,12 +82,7 @@ public class RequestUtils {
     private static MockHttpServletRequestBuilder invitationAcceptanceBody(long meetingId,
         long userId) {
         return MockMvcRequestBuilders.post("/meeting/accept")
-            .content("""
-                {
-                  "meetingId": %s,
-                  "userId": %s
-                }
-                """.formatted(
+            .content(MEETING_INVITE_UPDATE_BODY_JSON.formatted(
                 meetingId,
                 userId
             )).contentType(MediaType.APPLICATION_JSON);
@@ -65,12 +91,7 @@ public class RequestUtils {
     private static MockHttpServletRequestBuilder invitationRejectionBody(long meetingId,
         long userId) {
         return MockMvcRequestBuilders.post("/meeting/reject")
-            .content("""
-                {
-                  "meetingId": %s,
-                  "userId": %s
-                }
-                """.formatted(
+            .content(MEETING_INVITE_UPDATE_BODY_JSON.formatted(
                 meetingId,
                 userId
             )).contentType(MediaType.APPLICATION_JSON);
@@ -79,39 +100,18 @@ public class RequestUtils {
     private static MockHttpServletRequestBuilder inviteCreationBody(long meetingId,
         List<Long> invitees) {
         return MockMvcRequestBuilders.post("/meeting/invite")
-            .content("""
-                {
-                  "meetingId": %s,
-                  "invitees": %s
-                }
-                """.formatted(
+            .content(MEETING_INVITE_BODY.formatted(
                 meetingId,
                 invitees.toString()
             ))
             .contentType(MediaType.APPLICATION_JSON);
     }
 
-    private static MockHttpServletRequestBuilder meetingCreationBody(long userId,
+    public static MockHttpServletRequestBuilder rawMeetingCreationBody(long userId,
         String meetingName,
         String fromDate, String fromTime, String toDate, String toTime, String timezone) {
         return MockMvcRequestBuilders.post("/meeting")
-            .content("""
-                {
-                  "userId": %d,
-                  "name": "%s",
-                  "duration": {
-                    "from": {
-                      "date": "%s",
-                      "time": "%s"
-                    },
-                    "to": {
-                      "date": "%s",
-                      "time": "%s"
-                    }
-                  },
-                  "timezone": "%s"
-                }
-                """.formatted(
+            .content(MEETING_CREATION_BODY_JSON.formatted(
                 userId,
                 meetingName,
                 fromDate,
