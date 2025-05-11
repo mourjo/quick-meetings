@@ -39,7 +39,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 @SpringBootTest
 @AutoConfigureMockMvc
 @JqwikSpringSupport
-public class CreateMeetingWebGenTests {
+public class RequestResponseGenTests {
 
     @Autowired
     MockMvc mockMvc;
