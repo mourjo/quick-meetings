@@ -1,14 +1,37 @@
 # quick-meetings
 
-Note: The database schema is read to generate Java classes. Start the Docker services before
-compilation.
+Branch: `demo-2-dst-holes`
 
-## Database Access
+This branch catches a bug with daylight savings while creating meetings.
 
-The database init script
-is [here](https://github.com/mourjo/quick-meetings/blob/main/src/test/resources/init.sql). Connect
-to the database using:
+## Run the failing test
+
+To run the problematic test:
 
 ```bash
-docker exec -it postgres_quick_meetings  psql -U justin -d quick_meetings_test_db
+mvn clean test -Dgroups=test-being-demoed
 ```
+
+## Bug: Start time is before end time
+
+Although the meeting starts at 2:34 and ends at 3:04, the error thrown says the start time is after
+end time.
+
+```
+Original Sample
+---------------
+  meetingArgs:
+    MeetingArgs[fromDate=2025-03-30, fromTime=02:34:31, toDate=2025-03-30, toTime=03:04:31, timezone=Europe/Amsterdam]
+
+  Original Error
+  --------------
+  java.lang.AssertionError:
+    Expecting actual:
+      "{"message":"Meeting cannot start (2025-03-30T03:34:31+02:00[Europe/Amsterdam]) after its end time (2025-03-30T03:04:31+02:00[Europe/Amsterdam])"}"
+    to contain at least one of the following elements:
+      ["Meeting created"]
+    but none were found
+```
+
+To fix this, use strict zoned date time conversion:
+`git revert --no-commit 20ac61b && git reset HEAD`
