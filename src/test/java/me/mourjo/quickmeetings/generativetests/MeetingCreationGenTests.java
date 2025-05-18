@@ -102,7 +102,6 @@ public class MeetingCreationGenTests {
             });
     }
 
-
     @SneakyThrows
     void createMeetingAndExpectSuccess(String fromDate,
         String fromTime,
