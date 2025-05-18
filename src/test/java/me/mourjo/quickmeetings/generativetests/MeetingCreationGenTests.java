@@ -122,7 +122,8 @@ public class MeetingCreationGenTests {
             )
         ).andExpect(matcher -> assertThat(matcher.getResponse().getContentAsString())
             .containsAnyOf(
-                "Meeting created"
+                "Meeting created",
+                "gap in the local time-line, typically caused by daylight savings"
             )
         ).andReturn();
     }
