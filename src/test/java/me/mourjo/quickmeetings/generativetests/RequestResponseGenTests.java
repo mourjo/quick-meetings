@@ -46,7 +46,7 @@ public class RequestResponseGenTests {
 
     User alice;
 
-    ObjectMapper om = JsonMapper.builder()
+    ObjectMapper objectMapper = JsonMapper.builder()
         .enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION)
         .build();
 
@@ -55,28 +55,6 @@ public class RequestResponseGenTests {
 
     @LocalServerPort
     private int port;
-
-
-    public ResponseEntity<String> getRequest(String uri, HttpHeaders headers) {
-        HttpEntity<?> entity = new HttpEntity<>(headers);
-
-        return testRestTemplate.exchange(
-            uri,
-            HttpMethod.GET,
-            entity,
-            String.class
-        );
-    }
-
-    public Function<HttpMethod, ResponseEntity<String>> requestBuilder(String uri, String body,
-        HttpHeaders headers) {
-        return method -> testRestTemplate.exchange(
-            uri,
-            method,
-            new HttpEntity<>(body, headers),
-            String.class
-        );
-    }
 
     public ResponseEntity<String> postRequest(String uri, String body, HttpHeaders headers) {
         return requestBuilder(uri, body, headers).apply(HttpMethod.POST);
@@ -115,7 +93,9 @@ public class RequestResponseGenTests {
 
     @SneakyThrows
     void assertThatValidJson(String string, String msg) {
-        assertThat(om.readValue(string, Map.class)).withFailMessage(msg).isInstanceOf(Map.class);
+        assertThat(objectMapper.readValue(string, Map.class))
+            .withFailMessage(msg)
+            .isInstanceOf(Map.class);
     }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
@@ -123,29 +103,18 @@ public class RequestResponseGenTests {
     void responsesAreAlwaysValidJson(
         @ForAll("methods") String method,
         @ForAll("paths") String path,
-        @ForAll("contentTypes") String contentType,
-        @ForAll("contentTypes") String accept,
+        @ForAll("contentTypes") String contentTypeHeader,
+        @ForAll("contentTypes") String acceptHeader,
         @ForAll("bodies") String body) {
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.ACCEPT, accept);
-        headers.add(HttpHeaders.CONTENT_TYPE, contentType);
-
-        var response = switch (method) {
-            case "GET" -> getRequest(path, headers);
-            case "POST" -> postRequest(path, body, headers);
-            case "PUT" -> putRequest(path, body, headers);
-            case "DELETE" -> deleteRequest(path, body, headers);
-            default -> throw new IllegalArgumentException("Unexpected method");
-        };
-
+        var response = httpRequest(method, path, acceptHeader, contentTypeHeader, body);
         var responseBody = response.getBody();
         int status = response.getStatusCode().value();
+
         var failureMsg = "Status: %s, Body: %s".formatted(status, responseBody);
         assertThat(responseBody).withFailMessage(failureMsg).isNotBlank();
         assertThatValidJson(responseBody, failureMsg);
         assertThat(status).withFailMessage(failureMsg).isLessThan(500);
-
     }
 
     @BeforeProperty
@@ -160,7 +129,6 @@ public class RequestResponseGenTests {
         meetingRepository.deleteAll();
         userMeetingRepository.deleteAll();
         alice = userService.createUser("alice");
-
     }
 
     @Provide
@@ -196,7 +164,7 @@ public class RequestResponseGenTests {
     @Provide
     Arbitrary<String> methods() {
         return Arbitraries.of(
-            "GET", "POST", "PUT", "DELETE"ˆ
+            "GET", "POST", "PUT", "DELETE"
         );
     }
 
@@ -249,5 +217,39 @@ public class RequestResponseGenTests {
                     t.get3()
                 )
             );
+    }
+
+    ResponseEntity<String> httpRequest(String method, String path, String acceptHeader,
+        String contentTypeHeader, String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.ACCEPT, acceptHeader);
+        headers.add(HttpHeaders.CONTENT_TYPE, contentTypeHeader);
+
+        return switch (method) {
+            case "GET" -> getRequest(path, headers);
+            case "POST" -> postRequest(path, body, headers);
+            case "PUT" -> putRequest(path, body, headers);
+            case "DELETE" -> deleteRequest(path, body, headers);
+            default -> throw new IllegalArgumentException("Unexpected method");
+        };
+    }
+
+    ResponseEntity<String> getRequest(String uri, HttpHeaders headers) {
+        return testRestTemplate.exchange(
+            uri,
+            HttpMethod.GET,
+            new HttpEntity<>(headers),
+            String.class
+        );
+    }
+
+    Function<HttpMethod, ResponseEntity<String>> requestBuilder(String uri, String body,
+        HttpHeaders headers) {
+        return method -> testRestTemplate.exchange(
+            uri,
+            method,
+            new HttpEntity<>(body, headers),
+            String.class
+        );
     }
 }
