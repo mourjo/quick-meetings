@@ -3,8 +3,8 @@ package me.mourjo.quickmeetings.web;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import me.mourjo.quickmeetings.exceptions.IllegalMeetingDurationException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
+import me.mourjo.quickmeetings.exceptions.StartAfterEndException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import me.mourjo.quickmeetings.web.dto.MeetingCreationRequest;
@@ -61,7 +61,7 @@ public class MeetingsController {
             ZoneId.of(request.timezone()));
 
         if (!fromZdt.isBefore(toZdt)) {
-            throw new IllegalMeetingDurationException(fromZdt, toZdt);
+            throw new StartAfterEndException(fromZdt, toZdt);
         }
 
         var meeting = meetingsService.createMeeting(
