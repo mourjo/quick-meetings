@@ -198,7 +198,9 @@ public class RequestResponseGenTests {
             .map(t ->
                 t.get1().formatted(
                     t.get2(),
-                    t.get3().stream().map(String::valueOf).collect(Collectors.joining(","))
+                    "[" +
+                        t.get3().stream().map(String::valueOf).collect(Collectors.joining(","))
+                        + "]"
                 )
             );
     }
