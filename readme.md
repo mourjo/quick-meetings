@@ -14,8 +14,8 @@ mvn clean test -Dgroups=test-being-demoed
 
 ## Bug: Start time is before end time
 
-Although the meeting starts at 2:34 and ends at 3:04, the error thrown says the start time is after
-end time.
+Although the meeting creation specifies the start-time at **02:34** and end-time at **03:04**, the
+error thrown says the start time is after the end time.
 
 ```
 Original Sample
