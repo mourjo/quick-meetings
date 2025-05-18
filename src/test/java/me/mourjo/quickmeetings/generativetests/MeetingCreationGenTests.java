@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import java.util.UUID;
 import lombok.SneakyThrows;
@@ -20,14 +21,16 @@ import me.mourjo.quickmeetings.web.MeetingsController;
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.Tag;
-import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.Tuple;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.spring.JqwikSpringSupport;
-import net.jqwik.time.api.constraints.DateTimeRange;
+import net.jqwik.time.api.DateTimes;
+import net.jqwik.time.api.arbitraries.LocalDateTimeArbitrary;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -42,6 +45,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @AutoConfigureMockMvc
 public class MeetingCreationGenTests {
 
+    private final LocalDateTime MIN_START_TIME = LocalDateTime.of(2025, 1, 15, 0, 0, 0, 0);
+
     @MockitoBean
     UserService userService;
 
@@ -50,32 +55,76 @@ public class MeetingCreationGenTests {
 
     @Autowired
     MockMvc mockMvc;
+
     Meeting meeting;
     String meetingName;
 
     @SneakyThrows
     @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
     void validMeetingRangeShouldReturn2xx(
-        @ForAll @DateTimeRange(min = "2025-01-01T00:00:00", max = "2025-06-01T00:00:00") LocalDateTime startTime,
-        @ForAll @IntRange(min = 15, max = 30) int durationMins,
-        @ForAll("zoneIds") String timezone) {
+        @ForAll("meetingArgs") MeetingArgs meetingArgs) {
 
         createMeetingAndExpectSuccess(
-            startTime,
-            startTime.plusMinutes(durationMins),
-            timezone
+            meetingArgs.fromDate(),
+            meetingArgs.fromTime(),
+            meetingArgs.toDate(),
+            meetingArgs.toTime(),
+            meetingArgs.timezone()
         );
     }
 
+    LocalDateTimeArbitrary startTimeProvider() {
+        return DateTimes.dateTimes()
+            .atTheEarliest(MIN_START_TIME)
+            .atTheLatest(MIN_START_TIME.plusMonths(6));
+    }
+
+    @Provide
+    Arbitrary<MeetingArgs> meetingArgs() {
+        return Combinators.combine(
+                startTimeProvider(),
+                Arbitraries.of(15, 30), // duration
+                zoneIds() // timezone
+            ).as(Tuple::of)
+            .map(tuple -> {
+                var from = tuple.get1();
+                var to = from.plusMinutes(tuple.get2());
+
+                var fromDate = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(from);
+                var fromTime = DateTimeFormatter.ofPattern("HH:mm:ss").format(from);
+
+                var toDate = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(to);
+                var toTime = DateTimeFormatter.ofPattern("HH:mm:ss").format(to);
+
+                var timezone = tuple.get3();
+
+                return new MeetingArgs(
+                    fromDate, fromTime, toDate, toTime, timezone
+                );
+            });
+    }
+
     @SneakyThrows
-    void createMeetingAndExpectSuccess(LocalDateTime from, LocalDateTime to, String zone) {
+    void createMeetingAndExpectSuccess(String fromDate,
+        String fromTime,
+        String toDate,
+        String toTime,
+        String timezone) {
         mockServiceCalls();
 
-        mockMvc.perform(createMeetingRequest(from, to, zone))
-            .andExpect(
-                matcher -> assertThat(matcher.getResponse().getContentAsString()).containsAnyOf(
-                    "Meeting created"))
-            .andReturn();
+        mockMvc.perform(
+            createMeetingRequest(
+                fromDate,
+                fromTime,
+                toDate,
+                toTime,
+                timezone
+            )
+        ).andExpect(matcher -> assertThat(matcher.getResponse().getContentAsString())
+            .containsAnyOf(
+                "Meeting created"
+            )
+        ).andReturn();
     }
 
     @Provide
@@ -97,14 +146,20 @@ public class MeetingCreationGenTests {
             .build();
     }
 
-    MockHttpServletRequestBuilder createMeetingRequest(LocalDateTime from, LocalDateTime to,
-        String zone) {
+    MockHttpServletRequestBuilder createMeetingRequest(
+        String fromDate,
+        String fromTime,
+        String toDate,
+        String toTime,
+        String timezone) {
         return RequestUtils.meetingCreationRequest(
             1,
-            meetingName,
-            from,
-            to,
-            zone
+            "sample meeting",
+            fromDate,
+            fromTime,
+            toDate,
+            toTime,
+            timezone
         );
     }
 
@@ -117,6 +172,11 @@ public class MeetingCreationGenTests {
         )).thenReturn(meeting);
 
         Mockito.when(userService.getUser(anyLong())).thenReturn(new User("name", 1));
+    }
+
+    record MeetingArgs(String fromDate, String fromTime, String toDate, String toTime,
+                       String timezone) {
+
     }
 
 }
