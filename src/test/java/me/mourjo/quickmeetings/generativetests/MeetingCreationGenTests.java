@@ -23,6 +23,7 @@ import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Tag;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.spring.JqwikSpringSupport;
@@ -35,6 +36,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+@Tag("test-being-demoed")
 @JqwikSpringSupport
 @WebMvcTest(MeetingsController.class)
 @AutoConfigureMockMvc
@@ -72,7 +74,6 @@ public class MeetingCreationGenTests {
         mockMvc.perform(createMeetingRequest(from, to, zone))
             .andExpect(
                 matcher -> assertThat(matcher.getResponse().getContentAsString()).containsAnyOf(
-                    "does not exist in zone",
                     "Meeting created"))
             .andReturn();
     }
