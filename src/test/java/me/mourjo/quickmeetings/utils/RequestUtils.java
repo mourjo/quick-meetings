@@ -64,6 +64,21 @@ public class RequestUtils {
         );
     }
 
+    public static MockHttpServletRequestBuilder meetingCreationRequest(long userId,
+        String meetingName,
+        String fromDate, String fromTime, String toDate, String toTime, String timezone) {
+
+        return rawMeetingCreationBody(
+            userId,
+            meetingName,
+            fromDate,
+            fromTime,
+            toDate,
+            toTime,
+            timezone
+        );
+    }
+
     public static MockHttpServletRequestBuilder inviteCreationRequest(long meetingId,
         List<Long> invitees) {
         return inviteCreationBody(meetingId, invitees);
