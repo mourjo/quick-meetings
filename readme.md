@@ -25,8 +25,13 @@ want from an API.
      at [Source: (String)"<html><body><h1>Whitelabel Error Page</h1><p>This application has no explicit mapping for /error, so you are seeing this a
 ```
 
+### Fix 1
+
 To fix this, tell Spring to ignore the request's accept header:
-`git revert --no-commit 69dae75 && git reset HEAD`
+
+```
+git revert --no-commit 69dae75 && git reset HEAD
+```
 
 ### Bug 2: POST meeting cannot be done without a duration
 
@@ -57,5 +62,10 @@ The error is:
  Cannot invoke "me.mourjo.quickmeetings.web.dto.MeetingDuration.from()" because the return value of "me.mourjo.quickmeetings.web.dto.MeetingCreationRequest.duration()" is null
 ```
 
+### Fix 2
+
 To fix this, add global exception handlers that construct proper error messages
-`git revert --no-commit 575d8d3 && git reset HEAD`
+
+```
+git revert --no-commit 575d8d3 && git reset HEAD
+```
