@@ -11,6 +11,7 @@ import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.IntRange;
@@ -62,7 +63,7 @@ public class OverlappingMeetingsGenTest {
     }
 
     @SneakyThrows
-    @Property
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void overlappingMeetingsCannotBeCreated(
         @ForAll @DateTimeRange(min = "2025-01-01T10:00:00", max = "2025-01-01T20:59:59") LocalDateTime meeting1Start,
         @ForAll @IntRange(min = 1, max = 60) int meeting1DurationMins,
