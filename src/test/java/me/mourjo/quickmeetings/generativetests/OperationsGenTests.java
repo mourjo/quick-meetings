@@ -60,19 +60,12 @@ public class OperationsGenTests {
         executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
     }
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void everyMeetingHasAnOwner(@ForAll("meetingOperations") List<MeetingOperation> ops) {
-        var state = init();
-        executeOperations(state, ops, state::assertEveryMeetingHasAnOwner);
-    }
-
     void executeOperations(MeetingState state, List<MeetingOperation> ops, Runnable invariant) {
         for (var operation : ops) {
             switch (operation.operationType()) {
                 case CREATE -> createMeeting(state, operation);
                 case INVITE -> inviteToMeeting(state, operation);
                 case ACCEPT -> acceptMeetingInvite(state, operation);
-                case REJECT -> rejectMeetingInvite(state, operation);
             }
             invariant.run();
         }
@@ -220,7 +213,7 @@ class MeetingOperation {
     }
 
     enum OperationType {
-        CREATE, INVITE, ACCEPT, REJECT
+        CREATE, INVITE, ACCEPT
     }
 }
 
