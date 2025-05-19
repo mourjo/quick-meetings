@@ -13,6 +13,7 @@ import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
+import net.jqwik.api.Tag;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.spring.JqwikSpringSupport;
 import net.jqwik.time.api.constraints.DateTimeRange;
@@ -22,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+@Tag("test-being-demoed")
 @JqwikSpringSupport
 @AutoConfigureMockMvc
 @SpringBootTest
