@@ -123,10 +123,6 @@ public class MeetingsService {
     }
 
     public boolean accept(long meetingId, long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new UserNotFoundException(userId);
-        }
-
         var meetingMaybe = meetingRepository.findById(meetingId);
         if (meetingMaybe.isPresent()) {
             var meeting = meetingMaybe.get();
