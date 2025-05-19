@@ -30,7 +30,6 @@ import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Combinators;
-import net.jqwik.api.EdgeCasesMode;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
@@ -55,7 +54,7 @@ public class OperationsGenTests {
     UserRepository userRepository;
     List<User> users;
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED, edgeCases = EdgeCasesMode.FIRST)
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
         var state = init();
         executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
