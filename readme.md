@@ -37,5 +37,10 @@ This happens when the start or end time falls in a local timezone which is a "ga
 savings. On 30 March 2025, at `02:00:00` clocks in France were turned forward 1 hour to `03:00:00` -
 the time between 2 and 3 does not exist and is a gap.
 
+### Fix
+
 To fix this bug in the code, use strict zoned date time conversion:
-`git revert --no-commit 20ac61b && git reset HEAD`
+
+```
+git revert --no-commit 20ac61b && git reset HEAD
+```
