@@ -4,7 +4,7 @@ Branch: `demo-1-server-never-returns-5xx`
 
 This branch breaks the expectation that the server will always return JSON and never 5xx.
 
-### Run the failing test
+## Run the failing test
 
 To run the problematic test:
 
@@ -12,7 +12,7 @@ To run the problematic test:
 mvn clean test -Dgroups=test-being-demoed
 ```
 
-### Bug 1: Non-JSON response body
+## Bug 1: Non-JSON response body
 
 If the accept header is `text/html`, Spring will try to return an HTML page, which is not what we
 want from an API.
@@ -33,7 +33,7 @@ To fix this, tell Spring to ignore the request's accept header:
 git revert --no-commit 69dae75 && git reset HEAD
 ```
 
-### Bug 2: POST meeting cannot be done without a duration
+## Bug 2: POST meeting cannot be done without a duration
 
 If the `POST /meeting` endpoint is called without a meeting duration (first snippet below), there is
 a `NullPointerException`:
