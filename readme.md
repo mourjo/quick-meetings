@@ -38,5 +38,5 @@ Original Sample
 To fix this, use a different (arguably less intuitive) query:
 
 ```
-git revert --no-commit 7b93eac && git reset HEAD
+git revert --no-commit 7cb6fc9 && git reset HEAD
 ```
