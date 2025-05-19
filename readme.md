@@ -1,6 +1,6 @@
 # quick-meetings
 
-Branch: `demo-2-dst-holes`
+Branch: `demo-2-invalid-date-range`
 
 This branch catches a bug with daylight savings while creating meetings.
 
