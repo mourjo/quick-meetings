@@ -33,7 +33,7 @@ Original Sample
   meeting2DurationMins: 49
 ```
 
-## Fix
+### Fix
 
 To fix this, use a different (arguably less intuitive) query:
 
