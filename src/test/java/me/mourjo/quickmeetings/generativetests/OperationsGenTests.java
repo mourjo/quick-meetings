@@ -67,9 +67,16 @@ public class OperationsGenTests {
 //    }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+    void noOperationCausesAnOverlap(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
             .withInvariant(MeetingState::assertNoUserHasOverlappingMeetings)
+            .run();
+    }
+
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    void everyMeetingHasAnOwner(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+        chain
+            .withInvariant(MeetingState::assertEveryMeetingHasAnOwner)
             .run();
     }
 
