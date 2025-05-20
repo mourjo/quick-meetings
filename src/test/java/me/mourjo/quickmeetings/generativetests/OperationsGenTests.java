@@ -14,8 +14,6 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import lombok.Getter;
-import lombok.experimental.Accessors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -114,27 +112,16 @@ public class OperationsGenTests {
     }
 }
 
-@Accessors(fluent = true)
-@Getter
-class MeetingOperation {
+
+record MeetingOperation(
+    OperationType operationType,
+    int startOffsetMins,
+    int durationMins,
+    int meetingIdx,
+    User user) {
 
     public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
         .atOffset(ZoneOffset.UTC);
-    private final OperationType operationType;
-    private final int durationMins;
-    private final int startOffsetMins;
-    private final int meetingIdx;
-    private final User user;
-
-
-    MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
-        int meetingIdx, User user) {
-        this.operationType = operationType;
-        this.durationMins = durationMins;
-        this.startOffsetMins = startOffsetMins;
-        this.meetingIdx = meetingIdx;
-        this.user = user;
-    }
 
     @Override
     public String toString() {
@@ -362,7 +349,7 @@ abstract class BaseAction implements Action.Independent<MeetingState> {
         var startOffsetMins = Arbitraries.integers().between(1, 60);
 
         return Combinators.combine(
-                operationType, durationMins, startOffsetMins, meetingIdx, user
+                operationType, startOffsetMins, durationMins, meetingIdx, user
             ).as(MeetingOperation::new)
             .map(operation -> Transformer.mutate(
                 operation.toString(),
