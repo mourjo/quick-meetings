@@ -142,8 +142,6 @@ public class OperationsGenTests {
             int meetingIndex = operation.meetingIdx() % meetings.size();
             var meeting = meetings.get(meetingIndex);
             action.apply(user.id(), meeting.id());
-            operation.setUser(user);
-            operation.setMeeting(meeting);
             state.setLastOperation(operation);
         }
     }
@@ -219,7 +217,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "creation: " + operation,
+                operation.toString(),
                 state -> {
                     createMeeting(state, operation);
                 }
@@ -244,7 +242,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "invite: " + operation,
+                operation.toString(),
                 meetingState -> {
                     actionOnInvite(operation, meetingState, meetingState::recordInvitation);
                 }
@@ -269,7 +267,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "accept-invite: " + operation,
+                operation.toString(),
                 meetingState -> {
                     actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
                 }
@@ -294,7 +292,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "reject-invite: " + operation,
+                operation.toString(),
                 meetingState -> {
                     actionOnInvite(operation, meetingState, meetingState::recordRejection);
                 }
@@ -311,9 +309,8 @@ class MeetingOperation {
     private final int durationMins;
     private final int startOffsetMins;
     private final int meetingIdx;
+    private final User user;
     private Long createdMeetingId;
-    private User user;
-    private Meeting meeting;
 
     MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
         int meetingIdx, User user) {
@@ -331,14 +328,6 @@ class MeetingOperation {
         }
     }
 
-    void setMeeting(Meeting meeting) {
-        this.meeting = meeting;
-    }
-
-    void setUser(User user) {
-        this.user = user;
-    }
-
 
     @Override
     public String toString() {
@@ -351,13 +340,12 @@ class MeetingOperation {
                 ", user=" + (user == null ? "" : user.name()) +
                 ", from=" + from +
                 ", to=" + to +
-                ", createdId=" + (createdMeetingId == null ? "" : createdMeetingId) +
                 '}';
         } else {
             return "Inputs{" +
                 "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
-                ", meeting=" + (meeting == null ? "" : meeting.id()) +
+                ", meetingIdx=" + (meetingIdx) +
                 '}';
         }
     }
