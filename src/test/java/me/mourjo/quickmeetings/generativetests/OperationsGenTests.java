@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -37,7 +36,6 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.Tag;
-import net.jqwik.api.arbitraries.ListArbitrary;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
@@ -78,27 +76,11 @@ public class OperationsGenTests {
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
-            .withAction(new CreateAction())
-            .withAction(new InviteAction())
-            .withAction(new AcceptInviteAction())
-            .withAction(new RejectInviteAction())
+            .withAction(new CreateAction(users))
+            .withAction(new InviteAction(users))
+            .withAction(new AcceptInviteAction(users))
+            .withAction(new RejectInviteAction(users))
             .improveShrinkingWith(MeetingStateChangesDetector::new);
-    }
-
-
-    @Provide
-    ListArbitrary<MeetingOperation> meetingOperations() {
-        var user = Arbitraries.of(users);
-        var operationType = Arbitraries.of(OperationType.values());
-
-        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-        var durationMins = Arbitraries.integers().between(1, 60);
-        var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-        return Combinators.combine(
-            operationType, durationMins, startOffsetMins, meetingIdx, user
-        ).as(MeetingOperation::new).list();
     }
 
     public MeetingState init() {
@@ -108,20 +90,6 @@ public class OperationsGenTests {
             meetingRepository,
             users
         );
-    }
-
-    private void actionOnInvite(MeetingOperation operation, MeetingState state,
-        Consumer<MeetingOperation> action) {
-
-        var meetings = state.getAllMeetings();
-
-        if (!meetings.isEmpty()) {
-            action.accept(operation);
-        }
-    }
-
-    private void createMeeting(MeetingState state, MeetingOperation operation) {
-        state.recordCreation(operation);
     }
 
     @BeforeProperty
@@ -146,107 +114,6 @@ public class OperationsGenTests {
         User charlie = userService.createUser("charlie");
         users = List.of(alice, bob, charlie);
     }
-
-
-    class CreateAction implements Action.Independent<MeetingState> {
-
-        @Override
-        public Arbitrary<Transformer<MeetingState>> transformer() {
-            var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.CREATE);
-
-            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-            var durationMins = Arbitraries.integers().between(1, 60);
-            var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-            var op = Combinators.combine(
-                operationType, durationMins, startOffsetMins, meetingIdx, user
-            ).as(MeetingOperation::new);
-
-            return op.map(operation -> Transformer.mutate(
-                operation.toString(),
-                state -> {
-                    createMeeting(state, operation);
-                }
-            ));
-        }
-    }
-
-    class InviteAction implements Action.Independent<MeetingState> {
-
-        @Override
-        public Arbitrary<Transformer<MeetingState>> transformer() {
-            var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.INVITE);
-
-            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-            var durationMins = Arbitraries.integers().between(1, 60);
-            var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-            var op = Combinators.combine(
-                operationType, durationMins, startOffsetMins, meetingIdx, user
-            ).as(MeetingOperation::new);
-
-            return op.map(operation -> Transformer.mutate(
-                operation.toString(),
-                meetingState -> {
-                    actionOnInvite(operation, meetingState, meetingState::recordInvitation);
-                }
-            ));
-        }
-    }
-
-    class AcceptInviteAction implements Action.Independent<MeetingState> {
-
-        @Override
-        public Arbitrary<Transformer<MeetingState>> transformer() {
-            var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.ACCEPT);
-
-            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-            var durationMins = Arbitraries.integers().between(1, 60);
-            var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-            var op = Combinators.combine(
-                operationType, durationMins, startOffsetMins, meetingIdx, user
-            ).as(MeetingOperation::new);
-
-            return op.map(operation -> Transformer.mutate(
-                operation.toString(),
-                meetingState -> {
-                    actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
-                }
-            ));
-        }
-    }
-
-    class RejectInviteAction implements Action.Independent<MeetingState> {
-
-        @Override
-        public Arbitrary<Transformer<MeetingState>> transformer() {
-            var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.REJECT);
-
-            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-            var durationMins = Arbitraries.integers().between(1, 60);
-            var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-            var op = Combinators.combine(
-                operationType, durationMins, startOffsetMins, meetingIdx, user
-            ).as(MeetingOperation::new);
-
-            return op.map(operation -> Transformer.mutate(
-                operation.toString(),
-                meetingState -> {
-                    actionOnInvite(operation, meetingState, meetingState::recordRejection);
-                }
-            ));
-        }
-    }
 }
 
 @Accessors(fluent = true)
@@ -266,9 +133,7 @@ class MeetingOperation {
         this.startOffsetMins = startOffsetMins;
         this.meetingIdx = meetingIdx;
         this.user = user;
-
     }
-
 
     @Override
     public String toString() {
@@ -343,7 +208,7 @@ class MeetingState {
         lastOperation.set(op);
     }
 
-    void recordCreation(MeetingOperation operation) {
+    private void recordCreation(MeetingOperation operation) {
         try {
             var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
             var to = from.plusMinutes(operation.durationMins());
@@ -362,12 +227,25 @@ class MeetingState {
         }
     }
 
-    void recordInvitation(MeetingOperation operation) {
+    void performAction(MeetingOperation operation) {
+        switch (operation.operationType()) {
+            case CREATE -> recordCreation(operation);
+            case ACCEPT -> recordAcceptance(operation);
+            case INVITE -> recordInvitation(operation);
+            case REJECT -> recordRejection(operation);
+        }
+    }
+
+    private void recordInvitation(MeetingOperation operation) {
+        var allMeetings = getAllMeetings();
+        if (allMeetings.isEmpty()) {
+            return;
+        }
+        var user = operation.user();
+        var idx = operation.meetingIdx();
+        var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+
         try {
-            var user = operation.user();
-            var allMeetings = getAllMeetings();
-            var idx = operation.meetingIdx();
-            var selectedMeeting = allMeetings.get(idx % allMeetings.size());
             var invitees = meetingsService.invite(selectedMeeting.id(), user.id());
             if (!invitees.isEmpty()) {
                 setLastOperation(operation);
@@ -377,10 +255,13 @@ class MeetingState {
     }
 
 
-    void recordAcceptance(MeetingOperation operation) {
+    private void recordAcceptance(MeetingOperation operation) {
         try {
-            var user = operation.user();
             var allMeetings = getAllMeetings();
+            if (allMeetings.isEmpty()) {
+                return;
+            }
+            var user = operation.user();
             var idx = operation.meetingIdx();
             var selectedMeeting = allMeetings.get(idx % allMeetings.size());
             var selectedMeetingId = selectedMeeting.id();
@@ -395,8 +276,11 @@ class MeetingState {
         }
     }
 
-    void recordRejection(MeetingOperation operation) {
+    private void recordRejection(MeetingOperation operation) {
         var allMeetings = getAllMeetings();
+        if (allMeetings.isEmpty()) {
+            return;
+        }
         var idx = operation.meetingIdx();
         var selectedMeeting = allMeetings.get(idx % allMeetings.size());
         var selectedMeetingId = selectedMeeting.id();
@@ -457,3 +341,80 @@ class MeetingState {
         }
     }
 }
+
+abstract class BaseAction implements Action.Independent<MeetingState> {
+
+    protected List<User> users;
+
+    public BaseAction(List<User> users) {
+        this.users = users;
+    }
+
+    abstract OperationType getOperationType();
+
+    @Override
+    public final Arbitrary<Transformer<MeetingState>> transformer() {
+        var user = Arbitraries.of(users);
+        var operationType = Arbitraries.just(getOperationType());
+        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+        var durationMins = Arbitraries.integers().between(1, 60);
+        var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+        return Combinators.combine(
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new)
+            .map(operation -> Transformer.mutate(
+                operation.toString(),
+                state -> state.performAction(operation)
+            ));
+    }
+}
+
+class CreateAction extends BaseAction {
+
+    public CreateAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.CREATE;
+    }
+}
+
+class InviteAction extends BaseAction {
+
+    public InviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.INVITE;
+    }
+}
+
+class AcceptInviteAction extends BaseAction {
+
+    public AcceptInviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.ACCEPT;
+    }
+}
+
+class RejectInviteAction extends BaseAction {
+
+    public RejectInviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.REJECT;
+    }
+}
+
