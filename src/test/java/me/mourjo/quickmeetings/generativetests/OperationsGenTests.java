@@ -47,7 +47,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Tag("test-being-demoed")
 @JqwikSpringSupport
 @SpringBootTest
 public class OperationsGenTests {
@@ -60,12 +59,7 @@ public class OperationsGenTests {
     UserRepository userRepository;
     List<User> users;
 
-//    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-//    void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
-//        var state = init();
-//        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
-//    }
-
+    @Tag("test-being-demoed")
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesAnOverlap(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
