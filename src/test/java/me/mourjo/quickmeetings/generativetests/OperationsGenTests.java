@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -65,7 +66,6 @@ public class OperationsGenTests {
 //        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
 //    }
 
-
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
@@ -80,7 +80,8 @@ public class OperationsGenTests {
             .withAction(new CreateAction())
             .withAction(new InviteAction())
             .withAction(new AcceptInviteAction())
-            //.improveShrinkingWith(MeetingStateChangesDetector::new)
+            .withAction(new RejectInviteAction())
+            .improveShrinkingWith(MeetingStateChangesDetector::new)
             ;
     }
 
@@ -90,6 +91,7 @@ public class OperationsGenTests {
                 case CREATE -> createMeeting(state, operation);
                 case INVITE -> inviteToMeeting(state, operation);
                 case ACCEPT -> acceptMeetingInvite(state, operation);
+                case REJECT -> rejectMeetingInvite(state, operation);
             }
             invariant.run();
         }
@@ -142,6 +144,7 @@ public class OperationsGenTests {
             action.apply(user.id(), meeting.id());
             operation.setUser(user);
             operation.setMeeting(meeting);
+            state.setLastOperation(operation);
         }
     }
 
@@ -151,6 +154,7 @@ public class OperationsGenTests {
         var to = from.plusMinutes(operation.durationMins());
         var id = state.recordCreation(user, from, to);
         operation.setCreatedMeetingId(id);
+        state.setLastOperation(operation);
     }
 
     @BeforeProperty
@@ -178,14 +182,23 @@ public class OperationsGenTests {
 
     class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
 
+        MeetingOperation op;
+
         @Override
         public void before(MeetingState before) {
-
+            op = before.getLastOperation();
         }
 
         @Override
         public boolean hasChanged(MeetingState after) {
-            return false;
+            var lastOp = after.getLastOperation();
+            if (lastOp == this.op) {
+                return false;
+            }
+            if (lastOp.operationType() == OperationType.CREATE) {
+                return lastOp.createdMeetingId() != null;
+            }
+            return true;
         }
     }
 
@@ -194,7 +207,7 @@ public class OperationsGenTests {
         @Override
         public Arbitrary<Transformer<MeetingState>> transformer() {
             var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.values());
+            var operationType = Arbitraries.of(OperationType.CREATE);
 
             var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
 
@@ -206,7 +219,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "creation",
+                "creation: " + operation,
                 state -> {
                     createMeeting(state, operation);
                 }
@@ -219,7 +232,7 @@ public class OperationsGenTests {
         @Override
         public Arbitrary<Transformer<MeetingState>> transformer() {
             var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.values());
+            var operationType = Arbitraries.of(OperationType.INVITE);
 
             var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
 
@@ -231,7 +244,7 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "invite",
+                "invite: " + operation,
                 meetingState -> {
                     actionOnInvite(operation, meetingState, meetingState::recordInvitation);
                 }
@@ -244,7 +257,7 @@ public class OperationsGenTests {
         @Override
         public Arbitrary<Transformer<MeetingState>> transformer() {
             var user = Arbitraries.of(users);
-            var operationType = Arbitraries.of(OperationType.values());
+            var operationType = Arbitraries.of(OperationType.ACCEPT);
 
             var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
 
@@ -256,9 +269,34 @@ public class OperationsGenTests {
             ).as(MeetingOperation::new);
 
             return op.map(operation -> Transformer.mutate(
-                "accept-invite",
+                "accept-invite: " + operation,
                 meetingState -> {
                     actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
+                }
+            ));
+        }
+    }
+
+    class RejectInviteAction implements Action.Independent<MeetingState> {
+
+        @Override
+        public Arbitrary<Transformer<MeetingState>> transformer() {
+            var user = Arbitraries.of(users);
+            var operationType = Arbitraries.of(OperationType.REJECT);
+
+            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+
+            var durationMins = Arbitraries.integers().between(1, 60);
+            var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+            var op = Combinators.combine(
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new);
+
+            return op.map(operation -> Transformer.mutate(
+                "reject-invite: " + operation,
+                meetingState -> {
+                    actionOnInvite(operation, meetingState, meetingState::recordRejection);
                 }
             ));
         }
@@ -325,7 +363,7 @@ class MeetingOperation {
     }
 
     enum OperationType {
-        CREATE, INVITE, ACCEPT
+        CREATE, INVITE, ACCEPT, REJECT
     }
 }
 
@@ -338,6 +376,8 @@ class MeetingState {
     private final Map<Long, Meeting> idToMeeting;
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
 
+    private final AtomicReference<MeetingOperation> lastOperation;
+
     public MeetingState(MeetingsService meetingsService,
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
         List<User> users) {
@@ -346,6 +386,7 @@ class MeetingState {
         this.meetingRepository = meetingRepository;
         this.meetingsService = meetingsService;
         this.users = users;
+        this.lastOperation = new AtomicReference<>();
 
         idToMeeting = new HashMap<>();
 
@@ -363,6 +404,14 @@ class MeetingState {
                 return o1.startAt().compareTo(o2.startAt());
             }));
         }
+    }
+
+    public MeetingOperation getLastOperation() {
+        return lastOperation.get();
+    }
+
+    public void setLastOperation(MeetingOperation op) {
+        lastOperation.set(op);
     }
 
     Long recordCreation(User user, OffsetDateTime from, OffsetDateTime to) {
