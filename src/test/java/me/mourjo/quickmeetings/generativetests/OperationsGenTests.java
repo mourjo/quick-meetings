@@ -1,5 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
+import static me.mourjo.quickmeetings.generativetests.MeetingOperation.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,8 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.experimental.Accessors;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -39,7 +42,6 @@ import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.ChangeDetector;
 import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
-import net.jqwik.time.api.DateTimes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -112,27 +114,33 @@ public class OperationsGenTests {
     }
 }
 
+@Accessors(fluent = true)
+@Getter
+class MeetingOperation {
 
-record MeetingOperation(
-    OperationType operationType,
-    OffsetDateTime from,
-    OffsetDateTime to,
-    int meetingIdx,
-    User user) {
+    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
+        .atOffset(ZoneOffset.UTC);
+    private final OperationType operationType;
+    private final int durationMins;
+    private final int startOffsetMins;
+    private final int meetingIdx;
+    private final User user;
 
-    static MeetingOperation from(OperationType type, OffsetDateTime from, int durationMins,
+
+    MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
         int meetingIdx, User user) {
-        return new MeetingOperation(
-            type,
-            from,
-            from.plusMinutes(durationMins),
-            meetingIdx,
-            user
-        );
+        this.operationType = operationType;
+        this.durationMins = durationMins;
+        this.startOffsetMins = startOffsetMins;
+        this.meetingIdx = meetingIdx;
+        this.user = user;
     }
 
     @Override
     public String toString() {
+        var from = LOWER_BOUND_TS.plusMinutes(startOffsetMins);
+        var to = LOWER_BOUND_TS.plusMinutes(startOffsetMins + durationMins);
+
         if (operationType == OperationType.CREATE) {
             return "Inputs{" +
                 "action=" + operationType +
@@ -203,12 +211,14 @@ class MeetingState {
 
     private void recordCreation(MeetingOperation operation) {
         try {
+            var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
+            var to = from.plusMinutes(operation.durationMins());
             var userId = operation.user().id();
             var meeting = meetingsService.createMeeting(
                 "meeting-" + UUID.randomUUID(),
                 operation.user().id(),
-                operation.from(),
-                operation.to()
+                from,
+                to
             );
 
             idToMeeting.put(meeting.id(), meeting);
@@ -305,9 +315,8 @@ class MeetingState {
     }
 
     private boolean hasOverlap() {
-        var epoch = OffsetDateTime.now().minusYears(50);
         for (long userId : userToConfirmedMeetings.keySet()) {
-            var prevEnd = epoch;
+            var prevEnd = LOWER_BOUND_TS.minusYears(10);
             for (var meeting : userToConfirmedMeetings.get(userId)) {
                 if (meeting.startAt().isEqual(prevEnd) || meeting.startAt().isBefore(prevEnd)) {
                     return true;
@@ -336,7 +345,6 @@ class MeetingState {
 
 abstract class BaseAction implements Action.Independent<MeetingState> {
 
-    private final LocalDateTime MIN_START_TIME = LocalDateTime.of(2025, 1, 15, 0, 0, 0, 0);
     protected List<User> users;
 
     public BaseAction(List<User> users) {
@@ -350,18 +358,12 @@ abstract class BaseAction implements Action.Independent<MeetingState> {
         var user = Arbitraries.of(users);
         var operationType = Arbitraries.just(getOperationType());
         var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-        var from = DateTimes.dateTimes()
-            .atTheEarliest(MIN_START_TIME)
-            .atTheLatest(MIN_START_TIME.plusHours(1))
-            .map(d -> d.atOffset(ZoneOffset.UTC));
-
-        var duration = Arbitraries.integers().between(1, 60);
+        var durationMins = Arbitraries.integers().between(1, 60);
+        var startOffsetMins = Arbitraries.integers().between(1, 60);
 
         return Combinators.combine(
-                operationType, from, duration, meetingIdx, user
-            )
-            .as(MeetingOperation::from)
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new)
             .map(operation -> Transformer.mutate(
                 operation.toString(),
                 state -> state.performAction(operation)
