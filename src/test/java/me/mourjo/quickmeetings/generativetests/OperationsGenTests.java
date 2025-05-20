@@ -29,6 +29,7 @@ import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
+import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -36,6 +37,10 @@ import net.jqwik.api.Provide;
 import net.jqwik.api.Tag;
 import net.jqwik.api.arbitraries.ListArbitrary;
 import net.jqwik.api.lifecycle.BeforeProperty;
+import net.jqwik.api.state.Action;
+import net.jqwik.api.state.ActionChain;
+import net.jqwik.api.state.ChangeDetector;
+import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,10 +59,29 @@ public class OperationsGenTests {
     UserRepository userRepository;
     List<User> users;
 
+//    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+//    void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
+//        var state = init();
+//        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
+//    }
+
+
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
-        var state = init();
-        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
+    void checkMyStack(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+        chain
+            .withInvariant(MeetingState::assertNoUserHasOverlappingMeetings)
+            .run();
+    }
+
+    @Provide
+    Arbitrary<ActionChain<MeetingState>> meetingActions() {
+
+        return ActionChain.startWith(this::init)
+            .withAction(new CreateAction())
+            .withAction(new InviteAction())
+            .withAction(new AcceptInviteAction())
+            //.improveShrinkingWith(MeetingStateChangesDetector::new)
+            ;
     }
 
     void executeOperations(MeetingState state, List<MeetingOperation> ops, Runnable invariant) {
@@ -150,6 +174,94 @@ public class OperationsGenTests {
         User bob = userService.createUser("bob");
         User charlie = userService.createUser("charlie");
         users = List.of(alice, bob, charlie);
+    }
+
+    class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
+
+        @Override
+        public void before(MeetingState before) {
+
+        }
+
+        @Override
+        public boolean hasChanged(MeetingState after) {
+            return false;
+        }
+    }
+
+    class CreateAction implements Action.Independent<MeetingState> {
+
+        @Override
+        public Arbitrary<Transformer<MeetingState>> transformer() {
+            var user = Arbitraries.of(users);
+            var operationType = Arbitraries.of(OperationType.values());
+
+            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+
+            var durationMins = Arbitraries.integers().between(1, 60);
+            var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+            var op = Combinators.combine(
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new);
+
+            return op.map(operation -> Transformer.mutate(
+                "creation",
+                state -> {
+                    createMeeting(state, operation);
+                }
+            ));
+        }
+    }
+
+    class InviteAction implements Action.Independent<MeetingState> {
+
+        @Override
+        public Arbitrary<Transformer<MeetingState>> transformer() {
+            var user = Arbitraries.of(users);
+            var operationType = Arbitraries.of(OperationType.values());
+
+            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+
+            var durationMins = Arbitraries.integers().between(1, 60);
+            var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+            var op = Combinators.combine(
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new);
+
+            return op.map(operation -> Transformer.mutate(
+                "invite",
+                meetingState -> {
+                    actionOnInvite(operation, meetingState, meetingState::recordInvitation);
+                }
+            ));
+        }
+    }
+
+    class AcceptInviteAction implements Action.Independent<MeetingState> {
+
+        @Override
+        public Arbitrary<Transformer<MeetingState>> transformer() {
+            var user = Arbitraries.of(users);
+            var operationType = Arbitraries.of(OperationType.values());
+
+            var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+
+            var durationMins = Arbitraries.integers().between(1, 60);
+            var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+            var op = Combinators.combine(
+                operationType, durationMins, startOffsetMins, meetingIdx, user
+            ).as(MeetingOperation::new);
+
+            return op.map(operation -> Transformer.mutate(
+                "accept-invite",
+                meetingState -> {
+                    actionOnInvite(operation, meetingState, meetingState::recordAcceptance);
+                }
+            ));
+        }
     }
 }
 
