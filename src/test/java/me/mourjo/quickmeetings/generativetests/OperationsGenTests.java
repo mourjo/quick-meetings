@@ -1,6 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
-import static me.mourjo.quickmeetings.generativetests.OperationsGenTests.LOWER_BOUND_TS;
+import static me.mourjo.quickmeetings.generativetests.MeetingOperation.LOWER_BOUND_TS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.time.LocalDateTime;
@@ -50,8 +50,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest
 public class OperationsGenTests {
 
-    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
-        .atOffset(ZoneOffset.UTC);
     UserMeetingRepository userMeetingRepository;
     MeetingRepository meetingRepository;
     MeetingsService meetingsService;
@@ -120,11 +118,14 @@ public class OperationsGenTests {
 @Getter
 class MeetingOperation {
 
+    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
+        .atOffset(ZoneOffset.UTC);
     private final OperationType operationType;
     private final int durationMins;
     private final int startOffsetMins;
     private final int meetingIdx;
     private final User user;
+
 
     MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
         int meetingIdx, User user) {
