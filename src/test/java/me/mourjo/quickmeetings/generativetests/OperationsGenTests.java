@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -26,6 +26,7 @@ import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.generativetests.MeetingOperation.OperationType;
+import me.mourjo.quickmeetings.generativetests.MeetingState.MeetingStateChangesDetector;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
 import net.jqwik.api.AfterFailureMode;
@@ -59,8 +60,8 @@ public class OperationsGenTests {
     UserRepository userRepository;
     List<User> users;
 
-    @Tag("test-being-demoed")
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    @Tag("test-being-demoed")
     void noOperationCausesAnOverlap(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
             .withInvariant(MeetingState::assertNoUserHasOverlappingMeetings)
@@ -76,27 +77,14 @@ public class OperationsGenTests {
 
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
-
         return ActionChain.startWith(this::init)
             .withAction(new CreateAction())
             .withAction(new InviteAction())
             .withAction(new AcceptInviteAction())
             .withAction(new RejectInviteAction())
-            .improveShrinkingWith(MeetingStateChangesDetector::new)
-            ;
+            .improveShrinkingWith(MeetingStateChangesDetector::new);
     }
 
-    void executeOperations(MeetingState state, List<MeetingOperation> ops, Runnable invariant) {
-        for (var operation : ops) {
-            switch (operation.operationType()) {
-                case CREATE -> createMeeting(state, operation);
-                case INVITE -> inviteToMeeting(state, operation);
-                case ACCEPT -> acceptMeetingInvite(state, operation);
-                case REJECT -> rejectMeetingInvite(state, operation);
-            }
-            invariant.run();
-        }
-    }
 
     @Provide
     ListArbitrary<MeetingOperation> meetingOperations() {
@@ -122,38 +110,18 @@ public class OperationsGenTests {
         );
     }
 
-    private void acceptMeetingInvite(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordAcceptance);
-    }
-
-    private void rejectMeetingInvite(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordRejection);
-    }
-
-    private void inviteToMeeting(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordInvitation);
-    }
-
     private void actionOnInvite(MeetingOperation operation, MeetingState state,
-        BiFunction<Long, Long, Boolean> action) {
-        var user = operation.user();
+        Consumer<MeetingOperation> action) {
+
         var meetings = state.getAllMeetings();
 
         if (!meetings.isEmpty()) {
-            int meetingIndex = operation.meetingIdx() % meetings.size();
-            var meeting = meetings.get(meetingIndex);
-            action.apply(user.id(), meeting.id());
-            state.setLastOperation(operation);
+            action.accept(operation);
         }
     }
 
     private void createMeeting(MeetingState state, MeetingOperation operation) {
-        var user = operation.user();
-        var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
-        var to = from.plusMinutes(operation.durationMins());
-        var id = state.recordCreation(user, from, to);
-        operation.setCreatedMeetingId(id);
-        state.setLastOperation(operation);
+        state.recordCreation(operation);
     }
 
     @BeforeProperty
@@ -179,27 +147,6 @@ public class OperationsGenTests {
         users = List.of(alice, bob, charlie);
     }
 
-    class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
-
-        MeetingOperation op;
-
-        @Override
-        public void before(MeetingState before) {
-            op = before.getLastOperation();
-        }
-
-        @Override
-        public boolean hasChanged(MeetingState after) {
-            var lastOp = after.getLastOperation();
-            if (lastOp == this.op) {
-                return false;
-            }
-            if (lastOp.operationType() == OperationType.CREATE) {
-                return lastOp.createdMeetingId() != null;
-            }
-            return true;
-        }
-    }
 
     class CreateAction implements Action.Independent<MeetingState> {
 
@@ -311,7 +258,6 @@ class MeetingOperation {
     private final int startOffsetMins;
     private final int meetingIdx;
     private final User user;
-    private Long createdMeetingId;
 
     MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
         int meetingIdx, User user) {
@@ -321,12 +267,6 @@ class MeetingOperation {
         this.meetingIdx = meetingIdx;
         this.user = user;
 
-    }
-
-    void setCreatedMeetingId(Long createdMeetingId) {
-        if (this.createdMeetingId == null && createdMeetingId != null) {
-            this.createdMeetingId = createdMeetingId;
-        }
     }
 
 
@@ -399,60 +339,74 @@ class MeetingState {
         return lastOperation.get();
     }
 
-    public void setLastOperation(MeetingOperation op) {
+    private void setLastOperation(MeetingOperation op) {
         lastOperation.set(op);
     }
 
-    Long recordCreation(User user, OffsetDateTime from, OffsetDateTime to) {
+    void recordCreation(MeetingOperation operation) {
         try {
+            var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
+            var to = from.plusMinutes(operation.durationMins());
+            var userId = operation.user().id();
             var meeting = meetingsService.createMeeting(
                 "meeting-" + UUID.randomUUID(),
-                user.id(),
+                operation.user().id(),
                 from,
                 to
             );
 
             idToMeeting.put(meeting.id(), meeting);
-            userToConfirmedMeetings.get(user.id()).add(meeting);
-            return meeting.id();
+            userToConfirmedMeetings.get(userId).add(meeting);
+            setLastOperation(operation);
         } catch (OverlappingMeetingsException ignored) {
         }
-        return null;
     }
 
-    boolean recordInvitation(long userId, long meetingId) {
+    void recordInvitation(MeetingOperation operation) {
         try {
-            var invitees = meetingsService.invite(meetingId, userId);
+            var user = operation.user();
+            var allMeetings = getAllMeetings();
+            var idx = operation.meetingIdx();
+            var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+            var invitees = meetingsService.invite(selectedMeeting.id(), user.id());
             if (!invitees.isEmpty()) {
-                return true;
+                setLastOperation(operation);
             }
         } catch (OverlappingMeetingsException ignored) {
         }
-        return false;
     }
 
 
-    boolean recordAcceptance(long userId, long meetingId) {
+    void recordAcceptance(MeetingOperation operation) {
         try {
-            if (meetingsService.accept(meetingId, userId)) {
-                var meeting = idToMeeting.get(meetingId);
-                userToConfirmedMeetings.get(userId).add(meeting);
-                return true;
+            var user = operation.user();
+            var allMeetings = getAllMeetings();
+            var idx = operation.meetingIdx();
+            var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+            var selectedMeetingId = selectedMeeting.id();
+
+            if (meetingsService.accept(selectedMeetingId, user.id())) {
+                var meeting = idToMeeting.get(selectedMeetingId);
+                userToConfirmedMeetings.get(user.id()).add(meeting);
+                setLastOperation(operation);
             }
         } catch (OverlappingMeetingsException ignored) {
 
         }
-        return false;
     }
 
-    boolean recordRejection(long userId, long meetingId) {
-        if (meetingsService.reject(meetingId, userId)) {
-            var meeting = idToMeeting.get(meetingId);
-            userToConfirmedMeetings.get(userId).remove(meeting);
-            return true;
-        }
+    void recordRejection(MeetingOperation operation) {
+        var allMeetings = getAllMeetings();
+        var idx = operation.meetingIdx();
+        var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+        var selectedMeetingId = selectedMeeting.id();
+        var userId = operation.user().id();
 
-        return false;
+        if (meetingsService.reject(selectedMeetingId, userId)) {
+            var meeting = idToMeeting.get(selectedMeetingId);
+            userToConfirmedMeetings.get(userId).remove(meeting);
+            setLastOperation(operation);
+        }
     }
 
     void assertNoUserHasOverlappingMeetings() {
@@ -486,5 +440,20 @@ class MeetingState {
             }
         }
         return false;
+    }
+
+    static class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
+
+        private MeetingOperation op;
+
+        @Override
+        public void before(MeetingState before) {
+            op = before.getLastOperation();
+        }
+
+        @Override
+        public boolean hasChanged(MeetingState after) {
+            return after.getLastOperation() != this.op;
+        }
     }
 }
