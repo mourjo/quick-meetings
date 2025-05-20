@@ -13,12 +13,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import javax.sql.DataSource;
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
-import me.mourjo.quickmeetings.db.UserMeeting;
-import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
@@ -43,6 +41,7 @@ import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 @JqwikSpringSupport
 @SpringBootTest
@@ -53,6 +52,7 @@ public class OperationsGenTests {
     MeetingsService meetingsService;
     UserRepository userRepository;
     List<User> users;
+    JdbcClient jdbcClient;
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     @Tag("test-being-demoed")
@@ -84,7 +84,8 @@ public class OperationsGenTests {
             meetingsService,
             userMeetingRepository,
             meetingRepository,
-            users
+            users,
+            jdbcClient
         );
     }
 
@@ -93,7 +94,9 @@ public class OperationsGenTests {
         @Autowired MeetingRepository meetingRepository,
         @Autowired UserMeetingRepository userMeetingRepository,
         @Autowired MeetingsService meetingsService,
-        @Autowired JdbcTemplate jdbcTemplate) {
+        @Autowired JdbcTemplate jdbcTemplate,
+        @Autowired DataSource dataSource) {
+        this.jdbcClient = JdbcClient.create(dataSource);
         this.userMeetingRepository = userMeetingRepository;
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
@@ -157,17 +160,18 @@ class MeetingState {
     private final List<User> users;
     private final Map<Long, Meeting> idToMeeting;
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
-
+    private final JdbcClient jdbcClient;
     private final AtomicReference<MeetingOperation> lastOperation;
 
     public MeetingState(MeetingsService meetingsService,
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
-        List<User> users) {
+        List<User> users, JdbcClient jdbcClient) {
 
         this.userMeetingRepository = userMeetingRepository;
         this.meetingRepository = meetingRepository;
         this.meetingsService = meetingsService;
         this.users = users;
+        this.jdbcClient = jdbcClient;
         this.lastOperation = new AtomicReference<>();
 
         idToMeeting = new HashMap<>();
@@ -286,15 +290,17 @@ class MeetingState {
     }
 
     void assertEveryMeetingHasAnOwner() {
-        var meetingIdsWithOwners = userMeetingRepository.findAll().stream()
-            .filter(um -> um.userRole() == RoleOfUser.OWNER)
-            .map(UserMeeting::meetingId)
-            .collect(Collectors.toSet());
+        var noOwnerCount = jdbcClient.sql("""
+                select count(*)
+                from user_meetings
+                where meeting_id NOT IN (
+                     select meeting_id from user_meetings where role_of_user='OWNER'
+                );
+                """)
+            .query(Integer.class)
+            .single();
 
-        var meetingIds = meetingRepository.findAll().stream().map(Meeting::id)
-            .collect(Collectors.toSet());
-
-        assertThat(meetingIdsWithOwners).isEqualTo(meetingIds);
+        assertThat(noOwnerCount).isEqualTo(0);
     }
 
     List<Meeting> getAllMeetings() {
