@@ -43,9 +43,9 @@ meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meet
 WHERE um.user_id IN (:userIds)
 AND um.role_of_user IN ('OWNER', 'ACCEPTED')
 AND (
-  (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
+  (existing_meeting.from_ts <= $1 AND existing_meeting.to_ts >= $1)
   OR
-  (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
+  (existing_meeting.from_ts <= $2 AND existing_meeting.to_ts >= $2)
 )
 ```
 
