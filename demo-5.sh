@@ -1,4 +1,4 @@
 #!/bin/bash
 
 git stash
-git checkout demo-4-meeting-acceptations
+git checkout demo-5-empty-meetings
