@@ -18,6 +18,9 @@ To run the problematic test:
 mvn clean test -Dgroups=test-being-demoed
 ```
 
+You can use this [Github Action](https://github.com/mourjo/quick-meetings/actions/workflows/test-being-demoed.yml) 
+to run the test and see the output - make sure to use the correct branch `demo-5-empty-meetings`.
+
 ## Bug: Accepting a meeting breaks invariant
 
 The minimal set of operations that fail is simple - this is provided by the test ouput as well:
