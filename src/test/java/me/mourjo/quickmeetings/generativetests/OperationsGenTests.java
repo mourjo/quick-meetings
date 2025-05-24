@@ -1,8 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
-import static me.mourjo.quickmeetings.generativetests.MeetingOperation.LOWER_BOUND_TS;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
+import javax.sql.DataSource;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -10,10 +8,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.sql.DataSource;
+
+import static me.mourjo.quickmeetings.generativetests.MeetingOperation.LOWER_BOUND_TS;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -24,6 +24,7 @@ import me.mourjo.quickmeetings.generativetests.MeetingOperation.OperationType;
 import me.mourjo.quickmeetings.generativetests.MeetingState.MeetingStateChangesDetector;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import me.mourjo.quickmeetings.utils.SortedMeetingSet;
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -154,10 +155,7 @@ record MeetingOperation(
 
 class MeetingState {
 
-    private final UserMeetingRepository userMeetingRepository;
-    private final MeetingRepository meetingRepository;
     private final MeetingsService meetingsService;
-    private final List<User> users;
     private final Map<Long, Meeting> idToMeeting;
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
     private final JdbcClient jdbcClient;
@@ -167,10 +165,7 @@ class MeetingState {
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
         List<User> users, JdbcClient jdbcClient) {
 
-        this.userMeetingRepository = userMeetingRepository;
-        this.meetingRepository = meetingRepository;
         this.meetingsService = meetingsService;
-        this.users = users;
         this.jdbcClient = jdbcClient;
         this.lastOperation = new AtomicReference<>();
 
@@ -180,15 +175,7 @@ class MeetingState {
         userMeetingRepository.deleteAll();
 
         for (User user : users) {
-            userToConfirmedMeetings.putIfAbsent(user.id(), new TreeSet<>((o1, o2) -> {
-                if (o1.id() == o2.id()) {
-                    return 0;
-                }
-                if (o1.startAt().isEqual(o2.startAt())) {
-                    return Long.compare(o1.id(), o2.id());
-                }
-                return o1.startAt().compareTo(o2.startAt());
-            }));
+            userToConfirmedMeetings.putIfAbsent(user.id(), SortedMeetingSet.create());
         }
     }
 
@@ -322,16 +309,16 @@ class MeetingState {
 
     static class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
 
-        private MeetingOperation op;
+        private MeetingOperation operation;
 
         @Override
         public void before(MeetingState before) {
-            op = before.getLastOperation();
+            operation = before.getLastOperation();
         }
 
         @Override
         public boolean hasChanged(MeetingState after) {
-            return after.getLastOperation() != this.op;
+            return after.getLastOperation() != this.operation;
         }
     }
 }
