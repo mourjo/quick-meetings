@@ -10,9 +10,6 @@ To run the problematic test:
 mvn clean test -Dgroups=test-being-demoed
 ```
 
-You can use this [Github Action](https://github.com/mourjo/quick-meetings/actions/workflows/test-being-demoed.yml) 
-to run the test and see the output - make sure to use the correct branch `demo-1-server-never-returns-5xx`.
-
 ## Bug 1: Non-JSON response body
 
 If the accept header is `text/html`, Spring will try to return an HTML page, which is not what we
