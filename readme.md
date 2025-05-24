@@ -10,6 +10,9 @@ To run the problematic test:
 mvn clean test -Dgroups=test-being-demoed
 ```
 
+You can use this [Github Action](https://github.com/mourjo/quick-meetings/actions/workflows/test-being-demoed.yml) 
+to run the test and see the output - make sure to use the correct branch `demo-2-invalid-date-range`.
+
 ## Bug: Start time is before end time
 
 Although the meeting creation specifies the start-time at **02:34** and end-time at **03:04**, the
