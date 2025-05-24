@@ -32,6 +32,7 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.Tag;
 import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
@@ -61,6 +62,7 @@ public class OperationsGenTests {
             .run();
     }
 
+    @Tag("test-being-demoed")
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesEmptyMeetings(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
