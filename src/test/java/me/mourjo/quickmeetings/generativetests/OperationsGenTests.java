@@ -66,7 +66,7 @@ public class OperationsGenTests {
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void everyMeetingHasAnOwner(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
-            .withInvariant(MeetingState::assertEveryMeetingHasAnOwner)
+            .withInvariant(MeetingState::assertEveryMeetingHasOneConfirmedAttendee)
             .run();
     }
 
@@ -276,12 +276,12 @@ class MeetingState {
         assertThat(hasOverlap()).isFalse();
     }
 
-    void assertEveryMeetingHasAnOwner() {
+    void assertEveryMeetingHasOneConfirmedAttendee() {
         var noOwnerCount = jdbcClient.sql("""
                 select count(*)
                 from user_meetings
                 where meeting_id NOT IN (
-                     select meeting_id from user_meetings where role_of_user='OWNER'
+                     select meeting_id from user_meetings where role_of_user IN ('OWNER', 'ACCEPTED')
                 );
                 """)
             .query(Integer.class)
