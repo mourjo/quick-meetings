@@ -1,8 +1,6 @@
 package me.mourjo.quickmeetings.generativetests;
 
-import static me.mourjo.quickmeetings.generativetests.OperationsGenTests.LOWER_BOUND_TS;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
+import javax.sql.DataSource;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -10,85 +8,74 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import lombok.Getter;
-import lombok.experimental.Accessors;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static me.mourjo.quickmeetings.generativetests.MeetingOperation.LOWER_BOUND_TS;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
-import me.mourjo.quickmeetings.db.UserMeeting;
-import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.generativetests.MeetingOperation.OperationType;
+import me.mourjo.quickmeetings.generativetests.MeetingState.MeetingStateChangesDetector;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import me.mourjo.quickmeetings.utils.SortedMeetingSet;
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
+import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.arbitraries.ListArbitrary;
 import net.jqwik.api.lifecycle.BeforeProperty;
+import net.jqwik.api.state.Action;
+import net.jqwik.api.state.ActionChain;
+import net.jqwik.api.state.ChangeDetector;
+import net.jqwik.api.state.Transformer;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 @JqwikSpringSupport
 @SpringBootTest
 public class OperationsGenTests {
 
-    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
-        .atOffset(ZoneOffset.UTC);
     UserMeetingRepository userMeetingRepository;
     MeetingRepository meetingRepository;
     MeetingsService meetingsService;
     UserRepository userRepository;
     List<User> users;
+    JdbcClient jdbcClient;
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void noOperationCausesAnOverlap(@ForAll("meetingOperations") List<MeetingOperation> ops) {
-        var state = init();
-        executeOperations(state, ops, state::assertNoUserHasOverlappingMeetings);
+    void noOperationCausesAnOverlap(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+        chain
+            .withInvariant(MeetingState::assertNoUserHasOverlappingMeetings)
+            .run();
     }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void everyMeetingHasAnOwner(@ForAll("meetingOperations") List<MeetingOperation> ops) {
-        var state = init();
-        executeOperations(state, ops, state::assertEveryMeetingHasAnOwner);
-    }
-
-    void executeOperations(MeetingState state, List<MeetingOperation> ops, Runnable invariant) {
-        for (var operation : ops) {
-            switch (operation.operationType()) {
-                case CREATE -> createMeeting(state, operation);
-                case INVITE -> inviteToMeeting(state, operation);
-                case ACCEPT -> acceptMeetingInvite(state, operation);
-                case REJECT -> rejectMeetingInvite(state, operation);
-            }
-            invariant.run();
-        }
+    void everyMeetingHasAnOwner(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+        chain
+            .withInvariant(MeetingState::assertEveryMeetingHasAnOwner)
+            .run();
     }
 
     @Provide
-    ListArbitrary<MeetingOperation> meetingOperations() {
-        var user = Arbitraries.of(users);
-        var operationType = Arbitraries.of(OperationType.values());
-
-        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
-
-        var durationMins = Arbitraries.integers().between(1, 60);
-        var startOffsetMins = Arbitraries.integers().between(1, 60);
-
-        return Combinators.combine(
-            operationType, durationMins, startOffsetMins, meetingIdx, user
-        ).as(MeetingOperation::new).list();
+    Arbitrary<ActionChain<MeetingState>> meetingActions() {
+        return ActionChain.startWith(this::init)
+            .withAction(new CreateAction(users))
+            .withAction(new InviteAction(users))
+            .withAction(new AcceptInviteAction(users))
+            .withAction(new RejectInviteAction(users))
+            .improveShrinkingWith(MeetingStateChangesDetector::new);
     }
 
     public MeetingState init() {
@@ -96,42 +83,9 @@ public class OperationsGenTests {
             meetingsService,
             userMeetingRepository,
             meetingRepository,
-            users
+            users,
+            jdbcClient
         );
-    }
-
-    private void acceptMeetingInvite(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordAcceptance);
-    }
-
-    private void rejectMeetingInvite(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordRejection);
-    }
-
-    private void inviteToMeeting(MeetingState state, MeetingOperation operation) {
-        actionOnInvite(operation, state, state::recordInvitation);
-    }
-
-    private void actionOnInvite(MeetingOperation operation, MeetingState state,
-        BiFunction<Long, Long, Boolean> action) {
-        var user = operation.user();
-        var meetings = state.getAllMeetings();
-
-        if (!meetings.isEmpty()) {
-            int meetingIndex = operation.meetingIdx() % meetings.size();
-            var meeting = meetings.get(meetingIndex);
-            action.apply(user.id(), meeting.id());
-            operation.setUser(user);
-            operation.setMeeting(meeting);
-        }
-    }
-
-    private void createMeeting(MeetingState state, MeetingOperation operation) {
-        var user = operation.user();
-        var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
-        var to = from.plusMinutes(operation.durationMins());
-        var id = state.recordCreation(user, from, to);
-        operation.setCreatedMeetingId(id);
     }
 
     @BeforeProperty
@@ -139,7 +93,9 @@ public class OperationsGenTests {
         @Autowired MeetingRepository meetingRepository,
         @Autowired UserMeetingRepository userMeetingRepository,
         @Autowired MeetingsService meetingsService,
-        @Autowired JdbcTemplate jdbcTemplate) {
+        @Autowired JdbcTemplate jdbcTemplate,
+        @Autowired DataSource dataSource) {
+        this.jdbcClient = JdbcClient.create(dataSource);
         this.userMeetingRepository = userMeetingRepository;
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
@@ -158,42 +114,16 @@ public class OperationsGenTests {
     }
 }
 
-@Accessors(fluent = true)
-@Getter
-class MeetingOperation {
 
-    private final OperationType operationType;
-    private final int durationMins;
-    private final int startOffsetMins;
-    private final int meetingIdx;
-    private Long createdMeetingId;
-    private User user;
-    private Meeting meeting;
+record MeetingOperation(
+    OperationType operationType,
+    int startOffsetMins,
+    int durationMins,
+    int meetingIdx,
+    User user) {
 
-    MeetingOperation(OperationType operationType, int durationMins, int startOffsetMins,
-        int meetingIdx, User user) {
-        this.operationType = operationType;
-        this.durationMins = durationMins;
-        this.startOffsetMins = startOffsetMins;
-        this.meetingIdx = meetingIdx;
-        this.user = user;
-
-    }
-
-    void setCreatedMeetingId(Long createdMeetingId) {
-        if (this.createdMeetingId == null && createdMeetingId != null) {
-            this.createdMeetingId = createdMeetingId;
-        }
-    }
-
-    void setMeeting(Meeting meeting) {
-        this.meeting = meeting;
-    }
-
-    void setUser(User user) {
-        this.user = user;
-    }
-
+    public static final OffsetDateTime LOWER_BOUND_TS = LocalDateTime.of(2025, 6, 9, 10, 20, 0, 0)
+        .atOffset(ZoneOffset.UTC);
 
     @Override
     public String toString() {
@@ -206,13 +136,12 @@ class MeetingOperation {
                 ", user=" + (user == null ? "" : user.name()) +
                 ", from=" + from +
                 ", to=" + to +
-                ", createdId=" + (createdMeetingId == null ? "" : createdMeetingId) +
                 '}';
         } else {
             return "Inputs{" +
                 "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
-                ", meeting=" + (meeting == null ? "" : meeting.id()) +
+                ", meetingIdx=" + (meetingIdx) +
                 '}';
         }
     }
@@ -224,21 +153,19 @@ class MeetingOperation {
 
 class MeetingState {
 
-    private final UserMeetingRepository userMeetingRepository;
-    private final MeetingRepository meetingRepository;
     private final MeetingsService meetingsService;
-    private final List<User> users;
     private final Map<Long, Meeting> idToMeeting;
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
+    private final JdbcClient jdbcClient;
+    private final AtomicReference<MeetingOperation> lastOperation;
 
     public MeetingState(MeetingsService meetingsService,
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
-        List<User> users) {
+        List<User> users, JdbcClient jdbcClient) {
 
-        this.userMeetingRepository = userMeetingRepository;
-        this.meetingRepository = meetingRepository;
         this.meetingsService = meetingsService;
-        this.users = users;
+        this.jdbcClient = jdbcClient;
+        this.lastOperation = new AtomicReference<>();
 
         idToMeeting = new HashMap<>();
 
@@ -246,68 +173,101 @@ class MeetingState {
         userMeetingRepository.deleteAll();
 
         for (User user : users) {
-            userToConfirmedMeetings.putIfAbsent(user.id(), new TreeSet<>((o1, o2) -> {
-                if (o1.id() == o2.id()) {
-                    return 0;
-                }
-                if (o1.startAt().isEqual(o2.startAt())) {
-                    return Long.compare(o1.id(), o2.id());
-                }
-                return o1.startAt().compareTo(o2.startAt());
-            }));
+            userToConfirmedMeetings.putIfAbsent(user.id(), SortedMeetingSet.create());
         }
     }
 
-    Long recordCreation(User user, OffsetDateTime from, OffsetDateTime to) {
+    public MeetingOperation getLastOperation() {
+        return lastOperation.get();
+    }
+
+    private void setLastOperation(MeetingOperation op) {
+        lastOperation.set(op);
+    }
+
+    private void recordCreation(MeetingOperation operation) {
         try {
+            var from = LOWER_BOUND_TS.plusMinutes(operation.startOffsetMins());
+            var to = from.plusMinutes(operation.durationMins());
+            var userId = operation.user().id();
             var meeting = meetingsService.createMeeting(
                 "meeting-" + UUID.randomUUID(),
-                user.id(),
+                operation.user().id(),
                 from,
                 to
             );
 
             idToMeeting.put(meeting.id(), meeting);
-            userToConfirmedMeetings.get(user.id()).add(meeting);
-            return meeting.id();
+            userToConfirmedMeetings.get(userId).add(meeting);
+            setLastOperation(operation);
         } catch (OverlappingMeetingsException ignored) {
         }
-        return null;
     }
 
-    boolean recordInvitation(long userId, long meetingId) {
+    void performAction(MeetingOperation operation) {
+        switch (operation.operationType()) {
+            case CREATE -> recordCreation(operation);
+            case ACCEPT -> recordAcceptance(operation);
+            case INVITE -> recordInvitation(operation);
+            case REJECT -> recordRejection(operation);
+        }
+    }
+
+    private void recordInvitation(MeetingOperation operation) {
+        var allMeetings = getAllMeetings();
+        if (allMeetings.isEmpty()) {
+            return;
+        }
+        var user = operation.user();
+        var idx = operation.meetingIdx();
+        var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+
         try {
-            var invitees = meetingsService.invite(meetingId, userId);
+            var invitees = meetingsService.invite(selectedMeeting.id(), user.id());
             if (!invitees.isEmpty()) {
-                return true;
+                setLastOperation(operation);
             }
         } catch (OverlappingMeetingsException ignored) {
         }
-        return false;
     }
 
 
-    boolean recordAcceptance(long userId, long meetingId) {
+    private void recordAcceptance(MeetingOperation operation) {
         try {
-            if (meetingsService.accept(meetingId, userId)) {
-                var meeting = idToMeeting.get(meetingId);
-                userToConfirmedMeetings.get(userId).add(meeting);
-                return true;
+            var allMeetings = getAllMeetings();
+            if (allMeetings.isEmpty()) {
+                return;
+            }
+            var user = operation.user();
+            var idx = operation.meetingIdx();
+            var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+            var selectedMeetingId = selectedMeeting.id();
+
+            if (meetingsService.accept(selectedMeetingId, user.id())) {
+                var meeting = idToMeeting.get(selectedMeetingId);
+                userToConfirmedMeetings.get(user.id()).add(meeting);
+                setLastOperation(operation);
             }
         } catch (OverlappingMeetingsException ignored) {
 
         }
-        return false;
     }
 
-    boolean recordRejection(long userId, long meetingId) {
-        if (meetingsService.reject(meetingId, userId)) {
-            var meeting = idToMeeting.get(meetingId);
-            userToConfirmedMeetings.get(userId).remove(meeting);
-            return true;
+    private void recordRejection(MeetingOperation operation) {
+        var allMeetings = getAllMeetings();
+        if (allMeetings.isEmpty()) {
+            return;
         }
+        var idx = operation.meetingIdx();
+        var selectedMeeting = allMeetings.get(idx % allMeetings.size());
+        var selectedMeetingId = selectedMeeting.id();
+        var userId = operation.user().id();
 
-        return false;
+        if (meetingsService.reject(selectedMeetingId, userId)) {
+            var meeting = idToMeeting.get(selectedMeetingId);
+            userToConfirmedMeetings.get(userId).remove(meeting);
+            setLastOperation(operation);
+        }
     }
 
     void assertNoUserHasOverlappingMeetings() {
@@ -315,15 +275,17 @@ class MeetingState {
     }
 
     void assertEveryMeetingHasAnOwner() {
-        var meetingIdsWithOwners = userMeetingRepository.findAll().stream()
-            .filter(um -> um.userRole() == RoleOfUser.OWNER)
-            .map(UserMeeting::meetingId)
-            .collect(Collectors.toSet());
+        var noOwnerCount = jdbcClient.sql("""
+                select count(*)
+                from user_meetings
+                where meeting_id NOT IN (
+                     select meeting_id from user_meetings where role_of_user='OWNER'
+                );
+                """)
+            .query(Integer.class)
+            .single();
 
-        var meetingIds = meetingRepository.findAll().stream().map(Meeting::id)
-            .collect(Collectors.toSet());
-
-        assertThat(meetingIdsWithOwners).isEqualTo(meetingIds);
+        assertThat(noOwnerCount).isEqualTo(0);
     }
 
     List<Meeting> getAllMeetings() {
@@ -342,4 +304,96 @@ class MeetingState {
         }
         return false;
     }
+
+    static class MeetingStateChangesDetector implements ChangeDetector<MeetingState> {
+
+        private MeetingOperation operation;
+
+        @Override
+        public void before(MeetingState before) {
+            operation = before.getLastOperation();
+        }
+
+        @Override
+        public boolean hasChanged(MeetingState after) {
+            return after.getLastOperation() != this.operation;
+        }
+    }
 }
+
+abstract class BaseAction implements Action.Independent<MeetingState> {
+
+    protected List<User> users;
+
+    public BaseAction(List<User> users) {
+        this.users = users;
+    }
+
+    abstract OperationType getOperationType();
+
+    @Override
+    public final Arbitrary<Transformer<MeetingState>> transformer() {
+        var user = Arbitraries.of(users);
+        var operationType = Arbitraries.just(getOperationType());
+        var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
+        var durationMins = Arbitraries.integers().between(1, 60);
+        var startOffsetMins = Arbitraries.integers().between(1, 60);
+
+        return Combinators.combine(
+                operationType, startOffsetMins, durationMins, meetingIdx, user
+            ).as(MeetingOperation::new)
+            .map(operation -> Transformer.mutate(
+                operation.toString(),
+                state -> state.performAction(operation)
+            ));
+    }
+}
+
+class CreateAction extends BaseAction {
+
+    public CreateAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.CREATE;
+    }
+}
+
+class InviteAction extends BaseAction {
+
+    public InviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.INVITE;
+    }
+}
+
+class AcceptInviteAction extends BaseAction {
+
+    public AcceptInviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.ACCEPT;
+    }
+}
+
+class RejectInviteAction extends BaseAction {
+
+    public RejectInviteAction(List<User> users) {
+        super(users);
+    }
+
+    @Override
+    OperationType getOperationType() {
+        return OperationType.REJECT;
+    }
+}
+
