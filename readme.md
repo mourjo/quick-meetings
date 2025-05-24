@@ -1,7 +1,6 @@
 # quick-meetings
 
-This branch identifies a SQL bug which is easy to miss: identifying overlapping meetings.
-Branch: `demo-3-meeting-creation-scenarios`
+This branch identifies a SQL bug which is easy to miss while identifying overlapping meetings.
 
 ## Run the failing test
 
@@ -13,9 +12,10 @@ mvn clean test -Dgroups=test-being-demoed
 
 ## Bug: SQL query to check overlaps is wrong
 
-This demos the explore-and-shrink method in property based testing - this test fails when the second
-meeting is overlapping with the first but only if the second meeting starts before and ends after
-the first:
+This test fails when the second meeting is overlapping with the first but only if the 
+second meeting **starts before** and **ends after** the first - note how the original
+sample finds a larger time overlap but the shrunk example finds the smallest failing 
+case:
 
 ```
 Shrunk Sample (130 steps)
@@ -31,6 +31,22 @@ Original Sample
   meeting1DurationMins: 6
   meeting2Start: 2025-01-01T19:55:33
   meeting2DurationMins: 49
+```
+
+## The query that was problematic
+The following query has a bug (in the last AND clause) - it is quite hard to catch it at first glance:
+
+```sql
+SELECT *
+FROM
+meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meeting_id
+WHERE um.user_id IN (:userIds)
+      AND um.role_of_user IN ('OWNER', 'ACCEPTED')
+      AND (
+            (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
+            OR
+            (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
+          )
 ```
 
 ### Fix
