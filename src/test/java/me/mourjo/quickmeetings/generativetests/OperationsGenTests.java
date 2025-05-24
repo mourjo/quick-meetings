@@ -62,7 +62,7 @@ public class OperationsGenTests {
     }
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void everyMeetingHasAnOwner(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
+    void noOperationCausesEmptyMeetings(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
         chain
             .withInvariant(MeetingState::assertEveryMeetingHasOneConfirmedAttendee)
             .run();
