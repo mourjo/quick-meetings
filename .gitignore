@@ -21,3 +21,5 @@ buildNumber.properties
 tmp
 .idea
 .jqwik-database
+
+.settings/
