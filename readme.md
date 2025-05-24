@@ -1,8 +1,6 @@
 # quick-meetings
 
-Branch: `demo-1-server-never-returns-5xx`
-
-This branch breaks the expectation that the server will always return JSON and never 5xx.
+This branch breaks the expectation that the server will always return JSON data and never 5xx statuses.
 
 ## Run the failing test
 
