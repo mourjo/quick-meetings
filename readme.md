@@ -45,7 +45,7 @@ Shrunk Sample (8 steps)
 
 The error that causes it to fail is due to the Json parser not being able to understand HTML payloads:
 
-```bash
+```
   Original Error
   --------------
   com.fasterxml.jackson.core.JsonParseException:
@@ -65,7 +65,7 @@ git revert --no-commit 69dae75 && git reset HEAD
 
 If the `POST /meeting` endpoint is called without a meeting duration, the application throws a `NullPointerException`:
 
-```json
+```
 Shrunk Sample (3 steps)
 -----------------------
   method: "POST"
