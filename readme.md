@@ -6,8 +6,9 @@ Bugs that mere mortals like me would surely ship to production and break the sys
 ## Bugs caught by Property Based Testing
 
 Check out each of the following branches with the bugs not fixed and see how property-based tests
-catch them - the readme file in each of these branches explain how to run and fix the bugs -- from
-simpler to complex:
+catch them.
+
+The readme file in each of these branches explain how to run and fix the bugs -- from simpler to complex:
 
 - [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx) -
   Does the API server always return valid JSON?
@@ -20,15 +21,15 @@ simpler to complex:
 - [demo-5-empty-meetings](https://github.com/mourjo/quick-meetings/tree/demo-5-empty-meetings) -
   Does any action create meetings with no attendees?
 
-## Start the database with Docker
+## Running the System
 
-The docker compose file will create and initialize the database schema.
+Initialize the database with the schema:
 
 ```bash
 docker compose up
 ```
 
-## Running the system
+Start the server:
 
 ```bash
 mvn spring-boot:run 
