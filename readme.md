@@ -1,9 +1,9 @@
 # quick-meetings
 
-Branch: `demo-4-meeting-acceptations`
-
 This branch tests user interactions - creating meetings, inviting others to meetings and accepting
-meeting invites. One of these breaks the invariant that no person can be in two meetings at the same
+meeting invites. 
+
+One of these interactions breaks the invariant that no person can be in two meetings at the same
 time.
 
 ## Run the failing test
