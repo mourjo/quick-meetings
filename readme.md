@@ -10,6 +10,10 @@ To run the problematic test:
 mvn clean test -Dgroups=test-being-demoed
 ```
 
+You can use this [Github Action](https://github.com/mourjo/quick-meetings/actions/workflows/test-being-demoed.yml) 
+to run the test and see the output - make sure to use the correct branch `demo-3-meeting-creation-scenarios`.
+
+
 ## Bug: SQL query to check overlaps is wrong
 
 This test fails when the second meeting is overlapping with the first but only if the 
