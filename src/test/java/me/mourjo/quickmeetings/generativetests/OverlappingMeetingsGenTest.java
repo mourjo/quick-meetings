@@ -1,10 +1,11 @@
 package me.mourjo.quickmeetings.generativetests;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
@@ -67,9 +68,9 @@ public class OverlappingMeetingsGenTest {
     @SneakyThrows
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void overlappingMeetingsCannotBeCreated(
-        @ForAll @DateTimeRange(min = "2025-01-01T10:00:00", max = "2025-01-01T20:59:59") LocalDateTime meeting1Start,
+        @ForAll @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59") LocalDateTime meeting1Start,
         @ForAll @IntRange(min = 1, max = 60) int meeting1DurationMins,
-        @ForAll @DateTimeRange(min = "2025-01-01T10:00:00", max = "2025-01-01T20:59:59") LocalDateTime meeting2Start,
+        @ForAll @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59") LocalDateTime meeting2Start,
         @ForAll @IntRange(min = 1, max = 60) int meeting2DurationMins
     ) {
         var debbie = userService.createUser("debbie");
