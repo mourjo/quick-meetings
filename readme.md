@@ -20,7 +20,7 @@ mvn clean test -Dgroups=test-being-demoed
 
 ## Bug: Accepting a meeting breaks invariant
 
-The minimal set of operations that fail is simple - this is provided by the test ouput as well:
+The minimal set of operations that fail is simple - this is provided by the test output as well:
 
 - Alice creates a meeting
 - Alice rejects that same meeting
