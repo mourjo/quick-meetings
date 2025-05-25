@@ -3,6 +3,8 @@
 This is a web application to create meetings. It uses property based testing to find obscure bugs.
 Bugs that mere mortals like me would surely ship to production and break the system's invariants.
 
+More details in [this blog post](https://mourjo.me/blog/musings/2025/05/25/quick-meetings-why-you-need-property-based-tests/).
+
 ## Bugs caught by Property Based Testing
 
 Check out each of the following branches with the bugs not fixed and see how property-based tests
