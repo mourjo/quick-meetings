@@ -1,5 +1,9 @@
 package me.mourjo.quickmeetings.web.dto;
 
-public record MeetingDuration(MeetingTime from, MeetingTime to) {
+import jakarta.validation.constraints.NotNull;
+
+public record MeetingDuration(
+    @NotNull(message = "Meeting duration `from` cannot be null") MeetingTime from,
+    @NotNull(message = "Meeting duration `to` cannot be null") MeetingTime to) {
 
 }

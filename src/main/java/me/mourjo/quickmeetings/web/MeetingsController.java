@@ -3,6 +3,8 @@ package me.mourjo.quickmeetings.web;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+
+import jakarta.validation.Valid;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.exceptions.StartAfterEndException;
 import me.mourjo.quickmeetings.service.MeetingsService;
@@ -45,7 +47,7 @@ public class MeetingsController {
 
     @PostMapping("/meeting")
     ResponseEntity<MeetingCreationResponse> createMeeting(
-        @RequestBody MeetingCreationRequest request) {
+        @Valid @RequestBody MeetingCreationRequest request) {
 
         var from = request.duration().from();
         var fromLdt = LocalDateTime.of(from.date(), from.time());

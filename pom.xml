@@ -33,6 +33,10 @@
   </build>
   <dependencies>
     <dependency>
+      <artifactId>spring-boot-starter-validation</artifactId>
+      <groupId>org.springframework.boot</groupId>
+    </dependency>
+    <dependency>
       <artifactId>jqwik-spring</artifactId>
       <groupId>net.jqwik</groupId>
       <scope>test</scope>
