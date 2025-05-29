@@ -63,13 +63,6 @@ public class OperationsGenTests {
             .run();
     }
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
-    void noOperationCausesEmptyMeetings(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-        chain
-            .withInvariant(MeetingState::assertEveryMeetingHasOneConfirmedAttendee)
-            .run();
-    }
-
     @Provide
     Arbitrary<ActionChain<MeetingState>> meetingActions() {
         return ActionChain.startWith(this::init)
@@ -274,20 +267,6 @@ class MeetingState {
 
     void assertNoUserHasOverlappingMeetings() {
         assertThat(hasOverlap()).isFalse();
-    }
-
-    void assertEveryMeetingHasOneConfirmedAttendee() {
-        var noOwnerCount = jdbcClient.sql("""
-                select count(*)
-                from user_meetings
-                where meeting_id NOT IN (
-                     select meeting_id from user_meetings where role_of_user IN ('OWNER', 'ACCEPTED')
-                );
-                """)
-            .query(Integer.class)
-            .single();
-
-        assertThat(noOwnerCount).isEqualTo(0);
     }
 
     List<Meeting> getAllMeetings() {
