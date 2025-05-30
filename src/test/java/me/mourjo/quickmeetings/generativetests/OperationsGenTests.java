@@ -69,6 +69,7 @@ public class OperationsGenTests {
             .withAction(new CreateAction(users))
             .withAction(new InviteAction(users))
             .withAction(new AcceptInviteAction(users))
+            .withAction(new RejectInviteAction(users))
             .improveShrinkingWith(MeetingStateChangesDetector::new);
     }
 
