@@ -12,9 +12,9 @@ mvn clean test -Dgroups=test-being-demoed
 
 ## Bug: SQL query to check overlaps is wrong
 
-This test fails when the second meeting is overlapping with the first but only if the 
+This test fails when the second meeting is overlapping with the first but only if the
 second meeting **starts before** and **ends after** the first - note how the original
-sample finds a larger time overlap but the shrunk example finds the smallest failing 
+sample finds a larger time overlap but the shrunk example finds the smallest failing
 case:
 
 ```
@@ -34,7 +34,9 @@ Original Sample
 ```
 
 ## The query that was problematic
-The following query has a bug (in the last AND clause) - it is quite hard to catch it at first glance:
+
+The following query has a bug (in the last AND clause) - it is quite hard to catch it at first
+glance:
 
 ```sql
 SELECT *
@@ -48,6 +50,9 @@ AND (
   (existing_meeting.from_ts <= $2 AND existing_meeting.to_ts >= $2)
 )
 ```
+
+The red meeting overlaps with the exsiting meeting but is missed by this query:
+<img src="src/test/resources/overlaps.jpg" width="600">
 
 ### Fix
 
