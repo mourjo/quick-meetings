@@ -2,3 +2,4 @@
 
 git stash
 git checkout main
+mvn clean
