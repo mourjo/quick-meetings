@@ -2,3 +2,4 @@
 
 git stash
 git checkout demo-4-meeting-acceptations
+mvn clean
