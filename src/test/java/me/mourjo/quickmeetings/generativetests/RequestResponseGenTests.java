@@ -1,5 +1,9 @@
 package me.mourjo.quickmeetings.generativetests;
 
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import static me.mourjo.quickmeetings.utils.RequestUtils.MEETING_CREATION_BODY_JSON;
 import static me.mourjo.quickmeetings.utils.RequestUtils.MEETING_INVITE_BODY;
 import static me.mourjo.quickmeetings.utils.RequestUtils.MEETING_INVITE_UPDATE_BODY_JSON;
@@ -8,9 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -86,7 +87,10 @@ public class RequestResponseGenTests {
 
     @Provide
     Arbitrary<String> timezones() {
-        return Arbitraries.of("Asia/Kolkata", "Etc/Utc", "thisisaninvalidtimezone");
+        return Arbitraries.oneOf(
+            Arbitraries.of("Asia/Kolkata", "Europe/Berlin"),
+            Arbitraries.strings()
+        );
     }
 
     @SneakyThrows
@@ -96,7 +100,7 @@ public class RequestResponseGenTests {
             .isInstanceOf(Map.class);
     }
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
     @SneakyThrows
     void responsesAreAlwaysValidJson(
         @ForAll("methods") String method,
