@@ -100,7 +100,7 @@ public class RequestResponseGenTests {
             .isInstanceOf(Map.class);
     }
 
-    @Property(tries = 100000, afterFailure = AfterFailureMode.RANDOM_SEED)
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     @SneakyThrows
     void responsesAreAlwaysValidJson(
         @ForAll("methods") String method,
