@@ -71,10 +71,23 @@ public class OverlappingMeetingsGenTest {
     @SneakyThrows
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void overlappingMeetingsCannotBeCreated(
-        @ForAll @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59") LocalDateTime meeting1Start,
-        @ForAll @IntRange(min = 1, max = 60) int meeting1DurationMins,
-        @ForAll @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59") LocalDateTime meeting2Start,
-        @ForAll @IntRange(min = 1, max = 60) int meeting2DurationMins
+
+        @ForAll
+        @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59")
+        LocalDateTime meeting1Start,
+
+        @ForAll
+        @IntRange(min = 1, max = 60)
+        int meeting1DurationMins,
+
+        @ForAll
+        @DateTimeRange(min = "2025-02-12T10:00:00", max = "2025-02-12T11:59:59")
+        LocalDateTime meeting2Start,
+
+        @ForAll
+        @IntRange(min = 1, max = 60)
+        int meeting2DurationMins
+
     ) {
         var debbie = userService.createUser("debbie");
         var meeting1End = meeting1Start.plusMinutes(meeting1DurationMins);
@@ -84,7 +97,7 @@ public class OverlappingMeetingsGenTest {
         createMeeting("Debbie's meeting", meeting1Start, debbie, meeting1End);
 
         // Ask the repository if the second meeting has any overlaps
-        var overlappingMeetingsDb = getOverlappingMeetingsForUser(meeting2Start, debbie, meeting2End);
+        var overlappingMeetingsDb = findOverlaps(meeting2Start, debbie, meeting2End);
 
         // Ask the oracle if the date times overlap - check if the repository result matches
         if (doIntervalsOverlap(meeting1Start, meeting1End, meeting2Start, meeting2End)) {
@@ -94,7 +107,7 @@ public class OverlappingMeetingsGenTest {
         }
     }
 
-    private List<Meeting> getOverlappingMeetingsForUser(LocalDateTime meeting2Start, User debbie, LocalDateTime meeting2End) {
+    private List<Meeting> findOverlaps(LocalDateTime meeting2Start, User debbie, LocalDateTime meeting2End) {
         return meetingRepository.findOverlappingMeetingsForUser(
             debbie.id(),
             ZonedDateTime.of(meeting2Start, ZoneOffset.UTC).toOffsetDateTime(),
