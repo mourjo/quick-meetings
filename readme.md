@@ -1,6 +1,7 @@
 # quick-meetings
 
-This branch breaks the expectation that the server will always return JSON data and never 5xx statuses.
+This branch breaks the expectation that the server will always return JSON data and never 5xx
+statuses.
 
 ## Run the failing test
 
@@ -43,7 +44,8 @@ Shrunk Sample (8 steps)
     "
 ```
 
-The error that causes it to fail is due to the Json parser not being able to understand HTML payloads:
+The error that causes it to fail is due to the Json parser not being able to understand HTML
+payloads:
 
 ```
   Original Error
@@ -63,7 +65,8 @@ git revert --no-commit 69dae75 && git reset HEAD
 
 ## Bug 2: POST meeting cannot be done without a duration
 
-If the `POST /meeting` endpoint is called without a meeting duration, the application throws a `NullPointerException`:
+If the `POST /meeting` endpoint is called without a meeting duration, the application throws a
+`NullPointerException`:
 
 ```
 Shrunk Sample (3 steps)
@@ -94,3 +97,17 @@ To fix this, we need to add global exception handlers that construct proper erro
 ```
 git revert --no-commit 575d8d3 && git reset HEAD
 ```
+
+## Switching Between Branches
+
+There are some scripts for easier switching between branches / running tests:
+
+| Script            | Branch                                                                                                               | Testing Area                                                                   |
+|-------------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| `./demo-1.sh`     | [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)     | Presentation: APIs should always return JSON                                   |
+| `./demo-2.sh`     | [demo-2-invalid-date-range](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)                 | Presentation: Valid date ranges should be accepted                             |
+| `./demo-3.sh`     | [demo-3-meeting-creation-scenarios](https://github.com/mourjo/quick-meetings/tree/demo-3-meeting-creation-scenarios) | A meeting cannot be created if it overlaps with an existing meeting            |
+| `./demo-4.sh`     | [demo-4-meeting-acceptations](https://github.com/mourjo/quick-meetings/tree/demo-4-meeting-acceptations)             | Interleaving multi-user actions should not allow overlapping meetings to exist |
+| `./demo-5.sh`     | [demo-5-empty-meetings](https://github.com/mourjo/quick-meetings/tree/demo-5-empty-meetings)                         | No end-user action can cause a meeting to become empty with no attendees       |
+| `./demo-reset.sh` | [main](https://github.com/mourjo/quick-meetings/)                                                                    | No failing test - All fixes implemented                                        |
+| `./fix*.sh`       |                                                                                                                      | Scripts that fixes bugs in the individual branches                             |
