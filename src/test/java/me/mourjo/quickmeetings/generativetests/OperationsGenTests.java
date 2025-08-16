@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -111,6 +112,7 @@ public class OperationsGenTests {
 
 
 record MeetingOperation(
+    int currentMeetingCount, // the number of meetings is used only for making the output more readable
     OperationType operationType,
     int startOffsetMins,
     int durationMins,
@@ -125,7 +127,7 @@ record MeetingOperation(
         var from = LOWER_BOUND_TS.plusMinutes(startOffsetMins);
         var to = LOWER_BOUND_TS.plusMinutes(startOffsetMins + durationMins);
 
-        if (operationType == OperationType.CREATE) {
+        if (operationType == MeetingOperation.OperationType.CREATE) {
             return "Inputs{" +
                 "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
@@ -136,7 +138,7 @@ record MeetingOperation(
             return "Inputs{" +
                 "action=" + operationType +
                 ", user=" + (user == null ? "" : user.name()) +
-                ", meetingIdx=" + (meetingIdx) +
+                ", meetingIdx=" + (currentMeetingCount == 0 ? -1 : meetingIdx % currentMeetingCount) +
                 '}';
         }
     }
@@ -147,6 +149,8 @@ record MeetingOperation(
 }
 
 class MeetingState {
+
+    public static MeetingState INST;
 
     private final MeetingsService meetingsService;
     private final Map<Long, Meeting> idToMeeting;
@@ -162,7 +166,7 @@ class MeetingState {
         this.jdbcClient = jdbcClient;
         this.lastOperation = new AtomicReference<>();
 
-        idToMeeting = new HashMap<>();
+        idToMeeting = new TreeMap<>();
 
         meetingRepository.deleteAll();
         userMeetingRepository.deleteAll();
@@ -170,6 +174,8 @@ class MeetingState {
         for (User user : users) {
             userToConfirmedMeetings.putIfAbsent(user.id(), SortedMeetingSet.create());
         }
+
+        INST = this;
     }
 
     public MeetingOperation getLastOperation() {
@@ -314,14 +320,19 @@ abstract class BaseAction implements Action.Independent<MeetingState> {
 
     @Override
     public final Arbitrary<Transformer<MeetingState>> transformer() {
+
         var user = Arbitraries.of(users);
         var operationType = Arbitraries.just(getOperationType());
         var meetingIdx = Arbitraries.integers().greaterOrEqual(0);
         var durationMins = Arbitraries.integers().between(1, 60);
         var startOffsetMins = Arbitraries.integers().between(1, 60);
 
+        // the number of meetings is used only for making the output more readable
+        // this would not be required for Dependent actions but that makes the test slower
+        var numberOfMeetings = Arbitraries.just(MeetingState.INST.getAllMeetings().size());
+
         return Combinators.combine(
-                operationType, startOffsetMins, durationMins, meetingIdx, user
+                numberOfMeetings, operationType, startOffsetMins, durationMins, meetingIdx, user
             ).as(MeetingOperation::new)
             .map(operation -> Transformer.mutate(
                 operation.toString(),
