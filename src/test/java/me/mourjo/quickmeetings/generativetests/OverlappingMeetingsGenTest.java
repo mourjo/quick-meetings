@@ -3,11 +3,14 @@ package me.mourjo.quickmeetings.generativetests;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import lombok.SneakyThrows;
+import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
+import me.mourjo.quickmeetings.db.User;
 import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.db.UserRepository;
 import me.mourjo.quickmeetings.service.MeetingsService;
@@ -78,19 +81,10 @@ public class OverlappingMeetingsGenTest {
         var meeting2End = meeting2Start.plusMinutes(meeting2DurationMins);
 
         // Create the first meeting
-        meetingsService.createMeeting(
-            "Debbie's meeting",
-            debbie.id(),
-            ZonedDateTime.of(meeting1Start, ZoneOffset.UTC),
-            ZonedDateTime.of(meeting1End, ZoneOffset.UTC)
-        );
+        createMeeting("Debbie's meeting", meeting1Start, debbie, meeting1End);
 
         // Ask the repository if the second meeting has any overlaps
-        var overlappingMeetingsDb = meetingRepository.findOverlappingMeetingsForUser(
-            debbie.id(),
-            ZonedDateTime.of(meeting2Start, ZoneOffset.UTC).toOffsetDateTime(),
-            ZonedDateTime.of(meeting2End, ZoneOffset.UTC).toOffsetDateTime()
-        );
+        var overlappingMeetingsDb = getOverlappingMeetingsForUser(meeting2Start, debbie, meeting2End);
 
         // Ask the oracle if the date times overlap - check if the repository result matches
         if (doIntervalsOverlap(meeting1Start, meeting1End, meeting2Start, meeting2End)) {
@@ -98,5 +92,22 @@ public class OverlappingMeetingsGenTest {
         } else {
             assertThat(overlappingMeetingsDb).isEmpty();
         }
+    }
+
+    private List<Meeting> getOverlappingMeetingsForUser(LocalDateTime meeting2Start, User debbie, LocalDateTime meeting2End) {
+        return meetingRepository.findOverlappingMeetingsForUser(
+            debbie.id(),
+            ZonedDateTime.of(meeting2Start, ZoneOffset.UTC).toOffsetDateTime(),
+            ZonedDateTime.of(meeting2End, ZoneOffset.UTC).toOffsetDateTime()
+        );
+    }
+
+    private void createMeeting(String name, LocalDateTime meeting1Start, User debbie, LocalDateTime meeting1End) {
+        meetingsService.createMeeting(
+            name,
+            debbie.id(),
+            ZonedDateTime.of(meeting1Start, ZoneOffset.UTC),
+            ZonedDateTime.of(meeting1End, ZoneOffset.UTC)
+        );
     }
 }
