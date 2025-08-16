@@ -42,3 +42,17 @@ To fix this bug in the code, use strict zoned date time conversion:
 ```
 git revert --no-commit 20ac61b && git reset HEAD
 ```
+
+## Switching Between Branches
+
+There are some scripts for easier switching between branches / running tests:
+
+| Script            | Branch                                                                                                               | Testing Area                                                                   |
+|-------------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| `./demo-1.sh`     | [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)     | Presentation: APIs should always return JSON                                   |
+| `./demo-2.sh`     | [demo-2-invalid-date-range](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)                 | Presentation: Valid date ranges should be accepted                             |
+| `./demo-3.sh`     | [demo-3-meeting-creation-scenarios](https://github.com/mourjo/quick-meetings/tree/demo-3-meeting-creation-scenarios) | A meeting cannot be created if it overlaps with an existing meeting            |
+| `./demo-4.sh`     | [demo-4-meeting-acceptations](https://github.com/mourjo/quick-meetings/tree/demo-4-meeting-acceptations)             | Interleaving multi-user actions should not allow overlapping meetings to exist |
+| `./demo-5.sh`     | [demo-5-empty-meetings](https://github.com/mourjo/quick-meetings/tree/demo-5-empty-meetings)                         | No end-user action can cause a meeting to become empty with no attendees       |
+| `./demo-reset.sh` | [main](https://github.com/mourjo/quick-meetings/)                                                                    | No failing test - All fixes implemented                                        |
+| `./fix*.sh`       |                                                                                                                      | Scripts that fixes bugs in the individual branches                             |
