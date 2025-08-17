@@ -68,9 +68,11 @@ Following is the fixed query clause - even after knowing the fix, the correct qu
 intuitive - and that highlights the problem of enumerating test cases: a subconscious bias of human
 programmers to prefer the more understandable over the more correct solution.
 
-| Original clause                                                                                                                                                     | Fixed clause                                                                   |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| <pre>(existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from) <br> OR <br> (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)</pre> | <pre>existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :from</pre> |
+| Original clause                                                                                                                                                                                                                                                                                        | Fixed clause                                                                                       |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| <pre>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :from<br>&nbsp;&nbsp;&nbsp;&nbsp;AND <br>&nbsp;&nbsp;existing_meeting.to_ts >= :from<br>) <br><br>OR<br><br>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;&nbsp;&nbsp;AND<br>&nbsp;&nbsp;existing_meeting.to_ts >= :to<br>)</pre> | <pre>existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;AND <br>existing_meeting.to_ts >= :from</pre> |
+
+Note: `:from` and `:to` are the starting and ending times of the new meeting about to be created.
 
 ## Switching Between Branches
 
