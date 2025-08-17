@@ -65,7 +65,7 @@ The above output highlights how the bug happens:
 
 ### Fix
 
-Checking for an overlap before accepting a meeting solves the bug:
+Checking for an overlap before accepting a meeting solves the bug (`./fix.sh`):
 
 ```
 git revert --no-commit 6910be3 && git reset HEAD
