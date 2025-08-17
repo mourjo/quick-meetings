@@ -57,7 +57,7 @@ payloads:
 
 ### Fix 1
 
-To fix this, we need to tell Spring to ignore the request's accept header (`./fix-1.sh`):
+To fix this, we need to tell Spring to ignore the request's accept header (`./fix-1-json-bug.sh`):
 
 ```
 git revert --no-commit 69dae75 && git reset HEAD
@@ -92,8 +92,8 @@ Status: 500, Body: {"timestamp":"2025-05-24T12:13:44.449+00:00","status":500,"er
 
 ### Fix 2
 
-To fix this, we need to add global exception handlers that construct proper error messages (
-`./fix-2.sh`):
+To fix this, we need to add global exception handlers that construct proper error messages
+(`./fix-2-exception-handling.sh`):
 
 ```
 git revert --no-commit 575d8d3 && git reset HEAD
