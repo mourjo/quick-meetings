@@ -62,6 +62,16 @@ To fix this, use a different query (`./fix.sh`):
 git revert --no-commit 7cb6fc9 && git reset HEAD
 ```
 
+### Updated Query
+
+Following is the fixed query clause - even after knowing the fix, the correct query is less
+intuitive - and that highlights the problem of enumerating test cases: a subconscious bias of human
+programmers to prefer the more understandable over the more correct solution.
+
+| Original clause                                                                                                                                | Fixed clause                                                          |
+|------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from) OR (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to) | (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :from) |
+
 ## Switching Between Branches
 
 There are some scripts for easier switching between branches / running tests:
