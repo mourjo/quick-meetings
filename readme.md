@@ -71,10 +71,13 @@ meeting about to be created):
 |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | <pre>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :from<br>&nbsp;&nbsp;&nbsp;&nbsp;AND <br>&nbsp;&nbsp;existing_meeting.to_ts >= :from<br>) <br><br>OR<br><br>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;&nbsp;&nbsp;AND<br>&nbsp;&nbsp;existing_meeting.to_ts >= :to<br>)</pre> | <pre>existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;AND <br>existing_meeting.to_ts >= :from</pre> |
 
-Even after knowing the fix, the correct query is less intuitive - and that highlights the problem of
-traditional enumerating of test cases: the subconscious bias of human programmers to prefer the more
-understandable over the more correct solution. Property based tests do not have this bias towards
-understandability and can only test the correctness of the system through the properties defined.
+Arguably, the original clause, although incorrect, is more intuitive than the correct fixed clause.
+**The human tendency is to prefer an understandable solution over a more correct one.**
+
+Unlike traditional test cases that are manually enumerated, property-based tests do not require the
+programmer to handpick specific inputs. PBTs test the system's correctness by ensuring properties
+(or invariants) hold true for a wide range of automatically generated inputs -- thus bypassing the
+programmer's cognitive humane biases.
 
 ## Switching Between Branches
 
