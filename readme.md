@@ -68,9 +68,9 @@ Following is the fixed query clause - even after knowing the fix, the correct qu
 intuitive - and that highlights the problem of enumerating test cases: a subconscious bias of human
 programmers to prefer the more understandable over the more correct solution.
 
-| Original clause                                                                                                                                | Fixed clause                                                          |
-|------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from) OR (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to) | (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :from) |
+| Original clause                                                                                                                                                     | Fixed clause                                                                   |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| <pre>(existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from) <br> OR <br> (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)</pre> | <pre>existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :from</pre> |
 
 ## Switching Between Branches
 
