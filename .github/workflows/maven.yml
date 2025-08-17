@@ -6,13 +6,13 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Maven Build
+name: Maven Build on demo-1-server-never-returns-5xx
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "demo-1-server-never-returns-5xx" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "demo-1-server-never-returns-5xx" ]
 
 jobs:
   build:
@@ -31,5 +31,7 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.1
         with:
           compose-file: "./docker-compose.yml"
+      - name: Apply bugfixes that are being demoed
+        run: ./fix-1-json-bug.sh && ./fix-2-exception-handling.sh
       - name: Build with Maven
         run: mvn -B package --file pom.xml
