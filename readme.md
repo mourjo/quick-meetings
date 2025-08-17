@@ -1,23 +1,21 @@
 # quick-meetings
 
-This is a web application to create meetings. It uses property based testing to find obscure bugs.
-Bugs that mere mortals like me would surely ship to production and break the system's invariants.
+This is a web application to create meetings. It uses property based testing to find obscure bugs by
+defining properties (or invariants) of the system and letting the system explore different
+combinations of inputs to **search** the problem space for bugs. This in contrast to traditional
+testing which involves manually enumerating test cases.
 
-The expectation is simple: We want to disallow any meeting that overlaps with an existing meeting --
-ie, the system should not allow a person to be in two meetings at the same time. For example, the
-meetings in red should not be allowed, while the green meetings are okay:
+The fundamental expectation is simple: We want to disallow any meeting that overlaps with an
+existing meeting -- ie, the system should not allow a person to be in two meetings at the same time.
+For example, the meetings in red should not be allowed, while the green meetings are okay:
+
 <img src="src/test/resources/overlap_cases.jpg" width="600">
-
-More details
-in [this blog post](https://mourjo.me/blog/tech/2025/05/25/quick-meetings-why-you-need-property-based-tests/).
 
 ## Bugs caught by Property Based Testing
 
-Check out each of the following branches with the bugs not fixed and see how property-based tests
-catch them.
-
-The readme file in each of these branches explain how to run and fix the bugs -- from simpler to
-complex:
+Each of the following branches have bugs in different parts of the system that are found by
+property-based tests. The readme file in each of these branches explain how to run and fix the
+bugs -- from simpler to complex:
 
 - [Does the API server always return valid JSON?](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)
 - [Does the API server accept dates in the correct format?](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)
