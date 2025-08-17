@@ -4,7 +4,7 @@
 current_branch=$(git rev-parse --abbrev-ref HEAD) ;
 
 if [ "$current_branch" = "demo-1-server-never-returns-5xx" ]; then
-  git revert --no-commit 575d8d3 && git reset HEAD
+  git revert --no-commit 575d8d390f35c0baa2984b56700f2f78a8f4cbbb && git reset HEAD
   mvn clean
 else
   echo "Current branch is not demo-1-server-never-returns-5xx"
