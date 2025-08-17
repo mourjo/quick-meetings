@@ -3,6 +3,11 @@
 This is a web application to create meetings. It uses property based testing to find obscure bugs.
 Bugs that mere mortals like me would surely ship to production and break the system's invariants.
 
+The expectation is simple: We want to disallow any meeting that overlaps with an existing meeting --
+ie, the system should not allow a person to be in two meetings at the same time. For example, the
+meetings in red should not be allowed, while the green meetings are okay:
+<img src="src/test/resources/overlap_cases.jpg" width="600">
+
 More details
 in [this blog post](https://mourjo.me/blog/tech/2025/05/25/quick-meetings-why-you-need-property-based-tests/).
 
