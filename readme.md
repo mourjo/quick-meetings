@@ -56,7 +56,7 @@ The red meeting overlaps with the exsiting meeting but is missed by this query:
 
 ### Fix
 
-To fix this, use a different (arguably less intuitive) query:
+To fix this, use a different query (`./fix.sh`):
 
 ```
 git revert --no-commit 7cb6fc9 && git reset HEAD
