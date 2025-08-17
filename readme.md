@@ -27,8 +27,8 @@ bugs -- from simpler to complex:
 
 There are some scripts for easier switching between branches / running tests:
 
-| Script            | Branch                                                                                                               | Testing Area                                                                   |
-|-------------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Script          | Branch                                                                                                               | Testing Area                                                                   |
+|-----------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
 | `demo-1.sh`     | [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)     | Presentation: APIs should always return JSON                                   |
 | `demo-2.sh`     | [demo-2-invalid-date-range](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)                 | Presentation: Valid date ranges should be accepted                             |
 | `demo-3.sh`     | [demo-3-meeting-creation-scenarios](https://github.com/mourjo/quick-meetings/tree/demo-3-meeting-creation-scenarios) | A meeting cannot be created if it overlaps with an existing meeting            |
@@ -49,6 +49,13 @@ Start the server:
 
 ```bash
 mvn spring-boot:run 
+```
+
+Alternatively, compile it into a Jar and then run the Jar:
+
+```bash
+mvn clean package spring-boot:repackage -DskipTests 
+java -jar target/quickmeetings-0.0.1-SNAPSHOT.jar
 ```
 
 This should start the local server
