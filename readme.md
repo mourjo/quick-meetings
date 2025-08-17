@@ -51,7 +51,7 @@ AND (
 )
 ```
 
-The red meeting overlaps with the exsiting meeting but is missed by this query:
+The red meeting overlaps with the exsiting meeting but is missed by this query:\
 <img src="src/test/resources/overlaps.jpg" width="600">
 
 ### Fix
@@ -64,15 +64,17 @@ git revert --no-commit 7cb6fc9 && git reset HEAD
 
 ### Updated Query
 
-Following is the fixed query clause - even after knowing the fix, the correct query is less
-intuitive - and that highlights the problem of enumerating test cases: a subconscious bias of human
-programmers to prefer the more understandable over the more correct solution.
+Following is the fixed query clause (`:from` and `:to` are the starting and ending times of the new
+meeting about to be created):
 
-| Original clause                                                                                                                                                                                                                                                                                        | Fixed clause                                                                                       |
+| Original Clause                                                                                                                                                                                                                                                                                        | Fixed Clause                                                                                       |
 |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | <pre>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :from<br>&nbsp;&nbsp;&nbsp;&nbsp;AND <br>&nbsp;&nbsp;existing_meeting.to_ts >= :from<br>) <br><br>OR<br><br>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;&nbsp;&nbsp;AND<br>&nbsp;&nbsp;existing_meeting.to_ts >= :to<br>)</pre> | <pre>existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;AND <br>existing_meeting.to_ts >= :from</pre> |
 
-Note: `:from` and `:to` are the starting and ending times of the new meeting about to be created.
+Even after knowing the fix, the correct query is less intuitive - and that highlights the problem of
+traditional enumerating of test cases: the subconscious bias of human programmers to prefer the more
+understandable over the more correct solution. Property based tests do not have this bias towards
+understandability and can only test the correctness of the system through the properties defined.
 
 ## Switching Between Branches
 
