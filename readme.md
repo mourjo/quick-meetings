@@ -34,7 +34,7 @@ OperationsGenTests.noOperationCausesEmptyMeetings:70 Invariant failed after the 
 
 ### Fix
 
-Not allowing the owner to reject their own meeting fixes the problem:
+Not allowing the owner to reject their own meeting fixes the problem (`./fix.sh`):
 
 ```
 git revert --no-commit 6910be3 && git reset HEAD
