@@ -1,4 +1,4 @@
-package me.mourjo.quickmeetings.generativetests;
+package me.mourjo.quickmeetings.generativetests.examples;
 
 import java.time.LocalDateTime;
 

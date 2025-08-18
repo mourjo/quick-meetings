@@ -1,4 +1,4 @@
-package me.mourjo.quickmeetings.generativetests;
+package me.mourjo.quickmeetings.generativetests.examples;
 
 import java.util.ArrayList;
 import java.util.List;
