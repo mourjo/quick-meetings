@@ -1,48 +1,45 @@
 package me.mourjo.quickmeetings.generativetests.examples;
 
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @net.jqwik.api.Disabled
-@Disabled
+@org.junit.jupiter.api.Disabled
 public class AdditionTest {
 
-    public static int add(int x, int y) {
-        int m = (x + y) * 4;
-        return m / 4;
+    public static double add(double x, double y) {
+        return x + y;
     }
 
     @Test
     void exampleBasedAdditionTest() {
-        assertThat(add(1, 0)).isEqualTo(1);
-        assertThat(add(1, 1)).isEqualTo(2);
-        assertThat(add(2, 3)).isEqualTo(5);
-        assertThat(add(-1, 1)).isEqualTo(0);
-        assertThat(add(-100, -1)).isEqualTo(-101);
-        assertThat(add(-1, -100)).isEqualTo(-101);
-        assertThat(add(130, 100)).isEqualTo(230);
-        assertThat(add(100, 130)).isEqualTo(230);
+        assertEquals(1.5, add(1.5, 0));
+        assertEquals(2.1, add(1.1, 1));
+        assertEquals(5.2, add(2.1, 3.1));
+        assertEquals(0, add(-1, 1));
+        assertEquals(-101.8, add(-100, -1.8));
+        assertEquals(-101, add(-1, -100));
+        assertEquals(230.5, add(130.5, 100));
+        assertEquals(231, add(100.6, 130.4));
     }
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED, tries = 100000)
     void propertyBasedAdditionTest(
         @ForAll
-        int a,
+        double a,
 
         @ForAll
-        int b
+        double b
     ) {
         assertEquals(a, add(a, 0));                          // additive identity
         assertEquals(0, add(a, -a));                         // additive inverse
         assertEquals(add(a, b), add(b, a));                  // commutativity
-        assertEquals(add(4, add(a, b)), add(add(4, a), b));  // associativity
+        assertEquals(add(1, add(a, b)), add(add(1, a), b));  // associativity
     }
 
 }
