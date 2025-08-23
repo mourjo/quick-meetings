@@ -28,18 +28,12 @@ public class AdditionTest {
         assertEquals(231, add(100.6, 130.4));
     }
 
-    @Property(afterFailure = AfterFailureMode.RANDOM_SEED, tries = 100000)
-    void propertyBasedAdditionTest(
-        @ForAll
-        double a,
-
-        @ForAll
-        double b
-    ) {
-        assertEquals(a, add(a, 0));                          // additive identity
-        assertEquals(0, add(a, -a));                         // additive inverse
-        assertEquals(add(a, b), add(b, a));                  // commutativity
-        assertEquals(add(1, add(a, b)), add(add(1, a), b));  // associativity
+    @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
+    void propertyBasedAdditionTest(@ForAll double a, @ForAll double b) {
+        assertEquals(a, add(a, 0), "Additive Identity");
+        assertEquals(0, add(a, -a), "Additive Inverse");
+        assertEquals(add(a, b), add(b, a), "Commutativity");
+        assertEquals(add(1, add(a, b)), add(add(1, a), b), "Associativity");
     }
 
 }
