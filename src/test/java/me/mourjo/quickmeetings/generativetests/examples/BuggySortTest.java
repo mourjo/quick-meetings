@@ -2,6 +2,8 @@ package me.mourjo.quickmeetings.generativetests.examples;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,6 +19,15 @@ public class BuggySortTest {
 
     Application app = new Application();
 
+    private static void verifyEveryElementLessOrEqualToNext(List<Integer> sortedIntegers, int i) {
+        var current = sortedIntegers.get(i);
+        var next = sortedIntegers.get(i + 1);
+
+        var msg = sortedIntegers.stream().map(Objects::toString).collect(Collectors.joining(", "));
+
+        assertThat(current).as(msg).isLessThanOrEqualTo(next);
+    }
+
     @Test
     void exampleTests() {
         assertThat(app.bubbleSort(List.of(10, 20, 30))).isEqualTo(List.of(10, 20, 30));
@@ -29,7 +40,7 @@ public class BuggySortTest {
     void propTests(@ForAll List<Integer> integers) {
         var sortedIntegers = app.bubbleSort(integers);
         for (int i = 0; i < integers.size() - 1; i++) {
-            assertThat(sortedIntegers.get(i)).isLessThanOrEqualTo(sortedIntegers.get(i + 1));
+            verifyEveryElementLessOrEqualToNext(sortedIntegers, i);
         }
     }
 
@@ -40,7 +51,6 @@ public class BuggySortTest {
 
             for (int i = 0; i < n - 1; i++) {
                 boolean swapped = false;
-                // fix: it should be n - i - 1
                 for (int j = 0; j < n - i - 2; j++) {
                     if (arr.get(j) > arr.get(j + 1)) {
                         int temp = arr.get(j);
