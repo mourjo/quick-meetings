@@ -4,6 +4,7 @@ import javax.sql.DataSource;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.ChangeDetector;
 import net.jqwik.api.state.Transformer;
+import net.jqwik.api.statistics.Statistics;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -58,9 +60,11 @@ public class OperationsGenTests {
 
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesAnOverlap(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-        chain
+        var finalState = chain
             .withInvariant(MeetingState::assertNoUserHasOverlappingMeetings)
             .run();
+
+        collectStatistics(finalState);
     }
 
     @Tag("test-being-demoed")
@@ -89,6 +93,12 @@ public class OperationsGenTests {
             users,
             jdbcClient
         );
+    }
+
+    private void collectStatistics(MeetingState meetingState) {
+        for (var action : meetingState.getHistoricalOperations()) {
+            Statistics.label("action").collect(action.operationType());
+        }
     }
 
     @BeforeProperty
@@ -164,6 +174,7 @@ class MeetingState {
     private final Map<Long, Set<Meeting>> userToConfirmedMeetings = new HashMap<>();
     private final JdbcClient jdbcClient;
     private final AtomicReference<MeetingOperation> lastOperation;
+    private final List<MeetingOperation> historicalOperations = new ArrayList<>();
 
     public MeetingState(MeetingsService meetingsService,
         UserMeetingRepository userMeetingRepository, MeetingRepository meetingRepository,
@@ -212,7 +223,12 @@ class MeetingState {
         }
     }
 
+    public List<MeetingOperation> getHistoricalOperations() {
+        return historicalOperations;
+    }
+
     void performAction(MeetingOperation operation) {
+        historicalOperations.add(operation);
         switch (operation.operationType()) {
             case CREATE -> recordCreation(operation);
             case ACCEPT -> recordAcceptance(operation);
