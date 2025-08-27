@@ -277,7 +277,7 @@ class MeetingState {
     }
 
     void assertNoUserHasOverlappingMeetings() {
-        assertThat(hasOverlap()).isFalse();
+        assertThat(hasOverlap()).as("No action causes overlapping meetings").isFalse();
     }
 
     void assertEveryMeetingHasOneConfirmedAttendee() {
