@@ -283,7 +283,7 @@ class MeetingState {
     }
 
     void assertEveryMeetingHasOneConfirmedAttendee() {
-        var noOwnerCount = jdbcClient.sql("""
+        var attendeeCount = jdbcClient.sql("""
                 select count(*)
                 from user_meetings
                 where meeting_id NOT IN (
@@ -293,7 +293,7 @@ class MeetingState {
             .query(Integer.class)
             .single();
 
-        assertThat(noOwnerCount).isEqualTo(0);
+        assertThat(attendeeCount).as("No meeting should have zero attendees").isEqualTo(0);
     }
 
     List<Meeting> getAllMeetings() {
