@@ -70,9 +70,11 @@ public class OperationsGenTests {
     @Tag("test-being-demoed")
     @Property(afterFailure = AfterFailureMode.RANDOM_SEED)
     void noOperationCausesEmptyMeetings(@ForAll("meetingActions") ActionChain<MeetingState> chain) {
-        chain
+        var finalState = chain
             .withInvariant(MeetingState::assertEveryMeetingHasOneConfirmedAttendee)
             .run();
+
+        collectStatistics(finalState);
     }
 
     @Provide
