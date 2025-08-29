@@ -63,6 +63,10 @@ To fix this, we need to tell Spring to ignore the request's accept header (`./fi
 git revert --no-commit 69dae75 && git reset HEAD
 ```
 
+This
+is [the commit](https://github.com/mourjo/quick-meetings/commit/69dae75b394a10e5bc45b75e22a1c4f3c287eb48)
+that introduced the bug.
+
 ## Bug 2: POST meeting cannot be done without a duration
 
 If the `POST /meeting` endpoint is called without a meeting duration, the application throws a
@@ -99,9 +103,8 @@ To fix this, we need to add global exception handlers that construct proper erro
 git revert --no-commit 575d8d3 && git reset HEAD
 ```
 
-This
-is [the commit](https://github.com/mourjo/quick-meetings/commit/69dae75b394a10e5bc45b75e22a1c4f3c287eb48)
-that introduced the bug.
+[This commit](https://github.com/mourjo/quick-meetings/commit/575d8d390f35c0baa2984b56700f2f78a8f4cbbb)
+introduced this bug.
 
 ## Switching Between Branches
 
