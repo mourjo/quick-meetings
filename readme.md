@@ -57,7 +57,7 @@ payloads:
 
 ### Fix 1
 
-To fix this, we need to tell Spring to ignore the request's accept header (`./fix-1-json-bug.sh`):
+To fix this, we need to [tell Spring](https://github.com/mourjo/quick-meetings/commit/69dae75b394a10e5bc45b75e22a1c4f3c287eb48) to ignore the request's accept header (`./fix-1-json-bug.sh`):
 
 ```
 git revert --no-commit 69dae75 && git reset HEAD
@@ -92,7 +92,7 @@ Status: 500, Body: {"timestamp":"2025-05-24T12:13:44.449+00:00","status":500,"er
 
 ### Fix 2
 
-To fix this, we need to add global exception handlers that construct proper error messages
+To fix this, we need to [add global exception handlers](https://github.com/mourjo/quick-meetings/commit/575d8d390f35c0baa2984b56700f2f78a8f4cbbb) that construct proper error messages
 (`./fix-2-exception-handling.sh`):
 
 ```
