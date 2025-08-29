@@ -37,18 +37,22 @@ the time between 2 and 3 does not exist and is a gap.
 
 ### Fix
 
-To fix this bug in the code, use [strict zoned date time conversion](https://github.com/mourjo/quick-meetings/commit/20ac61bee2473dc1c663321e28ea7f61bf428f2b) (run the file `./fix.sh`):
+To fix this bug in the code, use strict zoned date time conversion (run the file `./fix.sh`):
 
 ```
 git revert --no-commit 20ac61b && git reset HEAD
 ```
 
+This
+is [the commit](https://github.com/mourjo/quick-meetings/commit/20ac61bee2473dc1c663321e28ea7f61bf428f2b)
+that introduced this bug.
+
 ## Switching Between Branches
 
 There are some scripts for easier switching between branches / running tests:
 
-| Script            | Branch                                                                                                               | Testing Area                                                                   |
-|-------------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Script          | Branch                                                                                                               | Testing Area                                                                   |
+|-----------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
 | `demo-1.sh`     | [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)     | Presentation: APIs should always return JSON                                   |
 | `demo-2.sh`     | [demo-2-invalid-date-range](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)                 | Presentation: Valid date ranges should be accepted                             |
 | `demo-3.sh`     | [demo-3-meeting-creation-scenarios](https://github.com/mourjo/quick-meetings/tree/demo-3-meeting-creation-scenarios) | A meeting cannot be created if it overlaps with an existing meeting            |
