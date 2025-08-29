@@ -56,11 +56,14 @@ The red meeting overlaps with the exsiting meeting but is missed by this query:\
 
 ### Fix
 
-To fix this, use [a different query](https://github.com/mourjo/quick-meetings/commit/7cb6fc948a49281e73dedfdf2899b3a04d8f34a9), shown in the next section below (`./fix.sh`):
+To fix this, use a different query, shown in the next section below (`./fix.sh`):
 
 ```
 git revert --no-commit 7cb6fc9 && git reset HEAD
 ```
+
+The bug was originally introduced
+in [this commit](https://github.com/mourjo/quick-meetings/commit/7cb6fc948a49281e73dedfdf2899b3a04d8f34a9).
 
 ### Updated Query
 
@@ -83,8 +86,8 @@ programmer's cognitive humane biases.
 
 There are some scripts for easier switching between branches / running tests:
 
-| Script            | Branch                                                                                                               | Testing Area                                                                   |
-|-------------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Script          | Branch                                                                                                               | Testing Area                                                                   |
+|-----------------|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
 | `demo-1.sh`     | [demo-1-server-never-returns-5xx](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)     | Presentation: APIs should always return JSON                                   |
 | `demo-2.sh`     | [demo-2-invalid-date-range](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)                 | Presentation: Valid date ranges should be accepted                             |
 | `demo-3.sh`     | [demo-3-meeting-creation-scenarios](https://github.com/mourjo/quick-meetings/tree/demo-3-meeting-creation-scenarios) | A meeting cannot be created if it overlaps with an existing meeting            |
