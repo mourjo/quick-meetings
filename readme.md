@@ -71,6 +71,8 @@ Checking for an overlap before accepting a meeting solves the bug (`./fix.sh`):
 git revert --no-commit 6910be3 && git reset HEAD
 ```
 
+This is [the commit](https://github.com/mourjo/quick-meetings/commit/6910be3ff273401623dab163733bcdad816a4b38) that introduced the bug.
+
 ## Switching Between Branches
 
 There are some scripts for easier switching between branches / running tests:
