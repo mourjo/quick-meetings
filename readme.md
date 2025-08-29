@@ -37,10 +37,10 @@ OperationsGenTests.noOperationCausesEmptyMeetings:70 Invariant failed after the 
 Not allowing the owner to reject their own meeting fixes the problem (`./fix.sh`):
 
 ```
-git revert --no-commit 6910be3 && git reset HEAD
+git revert --no-commit 42db256 && git reset HEAD
 ```
 
-This is [the commit](https://github.com/mourjo/quick-meetings/commit/6910be3ff273401623dab163733bcdad816a4b38) that introduced the bug.
+This is [the commit](https://github.com/mourjo/quick-meetings/commit/42db25642d040b216ca687b411b43a2db400e17f) that introduced the bug.
 
 Arguably, there should be a delete endpoint that does this rejection for the owner. And that
 underscores the power of property based tests - no action should work in a way that breaks the
