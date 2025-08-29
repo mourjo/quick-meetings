@@ -56,7 +56,7 @@ The red meeting overlaps with the exsiting meeting but is missed by this query:\
 
 ### Fix
 
-To fix this, use a different query (`./fix.sh`):
+To fix this, use [a different query](https://github.com/mourjo/quick-meetings/commit/7cb6fc948a49281e73dedfdf2899b3a04d8f34a9), shown in the next section below (`./fix.sh`):
 
 ```
 git revert --no-commit 7cb6fc9 && git reset HEAD
