@@ -17,7 +17,7 @@ existing meeting -- ie, the system should not allow a person to be in two meetin
 For example, the meetings in red should not be allowed, while the green meetings are okay:
 
 <p align="center">
-<img src="src/test/resources/overlap_cases.jpg" width="600">
+<img src="src/test/resources/overlap_cases.jpg" width="800">
 </p>
 
 ## What could possibly go wrong?
