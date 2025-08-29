@@ -4,7 +4,9 @@ This is a web application for creating and managing meetings.
 Unlike traditional testing, which relies on manually writing individual test cases, this project
 uses property-based testing to uncover subtle bugs.
 
+<p align="center">
 <img src="src/test/resources/bug.png" width="600">
+</p>
 
 Instead of checking predefined scenarios, we
 rely on system properties (invariants) and let the test framework automatically generate diverse
@@ -14,14 +16,18 @@ The fundamental expectation is simple: We want to disallow any meeting that over
 existing meeting -- ie, the system should not allow a person to be in two meetings at the same time.
 For example, the meetings in red should not be allowed, while the green meetings are okay:
 
+<p align="center">
 <img src="src/test/resources/overlap_cases.jpg" width="600">
+</p>
 
 ## What could possibly go wrong?
 
 This is a simple application with five endpoints. They are manually tested and works for the simple
 cases.
 
+<p align="center">
 <img src="src/test/resources/swagger.png" width="600">
+</p>
 
 However, each of the following branches highlight the bugs in different parts of the system that are
 found by
