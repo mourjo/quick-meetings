@@ -1,5 +1,7 @@
 package me.mourjo.quickmeetings.it;
 
+import java.util.List;
+
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.ACCEPTED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.INVITED;
 import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.OWNER;
@@ -7,7 +9,6 @@ import static me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser.REJECTED;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import java.util.List;
 import me.mourjo.quickmeetings.exceptions.MeetingNotFoundException;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.exceptions.UserNotFoundException;
@@ -39,14 +40,14 @@ public class MeetingInviteTests extends BaseIT {
 
         assertThatExceptionOfType(UserNotFoundException.class)
             .isThrownBy(
-                () -> meetingsService.invite(aliceMeeting.id(), List.of(98L))
-            ).withMessageContaining("Users [98] not found");
+                () -> meetingsService.invite(aliceMeeting.id(), List.of(9891L))
+            ).withMessageContaining("Users [9891] not found");
 
         assertThatExceptionOfType(UserNotFoundException.class)
             .isThrownBy(
                 () -> meetingsService.invite(aliceMeeting.id(),
-                    List.of(bob.id(), charlie.id(), 99L))
-            ).withMessageContaining("Users [99] not found");
+                    List.of(bob.id(), charlie.id(), 9910L))
+            ).withMessageContaining("Users [9910] not found");
     }
 
     @Test
