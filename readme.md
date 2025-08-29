@@ -52,6 +52,11 @@ There are some scripts for easier switching between branches / running tests:
 | `demo-reset.sh` | [main](https://github.com/mourjo/quick-meetings/)                                                                    | No failing test - All fixes implemented                                        |
 | `fix*.sh`       |                                                                                                                      | Scripts that fixes bugs in the individual branches                             |
 
+## Jqwik library
+
+This repository uses [Jqwik](https://github.com/jqwik-team/jqwik), a library that brings
+property-based testing to Java.
+
 ## Running the System
 
 Initialize the database with the schema:
