@@ -52,7 +52,10 @@ AND (
 ```
 
 The red meeting overlaps with the exsiting meeting but is missed by this query:\
+
+<p align="center">
 <img src="src/test/resources/overlaps.jpg" width="600">
+</p>
 
 ### Fix
 
