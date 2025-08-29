@@ -1,9 +1,13 @@
-# quick-meetings
+# ⚡Quick Meetings ⚡
 
 This is a web application for creating and managing meetings.
 Unlike traditional testing, which relies on manually writing individual test cases, this project
-uses property-based testing to uncover subtle bugs. Instead of checking predefined scenarios, we
-define system properties (invariants) and let the test framework automatically generate diverse
+uses property-based testing to uncover subtle bugs.
+
+<img src="src/test/resources/bug.png" width="600">
+
+Instead of checking predefined scenarios, we
+rely on system properties (invariants) and let the test framework automatically generate diverse
 input combinations to explore the problem space.
 
 The fundamental expectation is simple: We want to disallow any meeting that overlaps with an
