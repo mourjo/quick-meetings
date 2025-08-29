@@ -37,7 +37,7 @@ the time between 2 and 3 does not exist and is a gap.
 
 ### Fix
 
-To fix this bug in the code, use strict zoned date time conversion(`./fix.sh`):
+To fix this bug in the code, use [strict zoned date time conversion](https://github.com/mourjo/quick-meetings/commit/20ac61bee2473dc1c663321e28ea7f61bf428f2b) (run the file `./fix.sh`):
 
 ```
 git revert --no-commit 20ac61b && git reset HEAD
