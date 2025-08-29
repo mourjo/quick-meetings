@@ -1,16 +1,15 @@
 # ⚡Quick Meetings ⚡
 
-This is a web application for creating and managing meetings.
+This is a online application for creating and managing meetings.
 Unlike traditional testing, which relies on manually writing individual test cases, this project
-uses property-based testing to uncover subtle bugs.
+uses **property-based testing** to uncover subtle bugs.
 
 <p align="center">
 <img src="src/test/resources/bug.png" width="600">
 </p>
 
-Instead of checking predefined scenarios, we
-rely on system properties (invariants) and let the test framework automatically generate diverse
-input combinations to explore the problem space.
+Instead of checking predefined scenarios, we rely on system properties (invariants) and let the test
+framework **automatically generate** diverse input combinations to explore the problem space.
 
 The fundamental expectation is simple: We want to disallow any meeting that overlaps with an
 existing meeting -- ie, the system should not allow a person to be in two meetings at the same time.
@@ -29,14 +28,9 @@ cases.
 <img src="src/test/resources/swagger.png" width="600">
 </p>
 
-However, each of the following branches highlight the bugs in different parts of the system that are
-found by
-property-based tests.
-
-The `main` branch includes the fixes for the bugs. There are dedicated branches for the bugs that
-were fixed because of property-based tests. The readme file in each of these branches explain how to
-run and fix the
-bugs -- from **simpler to complex**:
+However, the following branches highlight bugs in different parts of the system that were found by
+property-based tests. The readme files in the branches explain the bugs and how it was discovered by
+a property-based test:
 
 - [Does the API server always return valid JSON?](https://github.com/mourjo/quick-meetings/tree/demo-1-server-never-returns-5xx)
 - [Does the API server accept dates in the correct format?](https://github.com/mourjo/quick-meetings/tree/demo-2-invalid-date-range)
