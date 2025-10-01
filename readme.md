@@ -78,8 +78,8 @@ mvn clean package spring-boot:repackage -DskipTests
 java -jar target/quickmeetings-0.0.1-SNAPSHOT.jar
 ```
 
-This should start the local server
-on [localhost:9981](http://localhost:9981/swagger-ui/index.html#/)
+This should start the local server with a Swagger UI
+at [localhost:9981/swagger-ui](http://localhost:9981/swagger-ui/index.html#/)
 
 ## Database Access
 
