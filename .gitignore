@@ -23,3 +23,5 @@ tmp
 .jqwik-database
 
 .settings/
+
+**/.DS_Store
