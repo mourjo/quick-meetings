@@ -59,10 +59,10 @@ The red meeting overlaps with the exsiting meeting but is missed by this query:
 
 ### Fix
 
-To fix this, use a different query, shown in the next section below (`./fix.sh`):
+To fix this, use a different query, shown in the next section below (alternatively `./fix.sh`):
 
 ```
-git revert --no-commit 7cb6fc9 && git reset HEAD
+git restore --source eb949fb src/main/java/me/mourjo/quickmeetings/db/MeetingRepository.java
 ```
 
 The bug was originally introduced
