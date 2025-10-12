@@ -36,7 +36,8 @@ Original Sample
 ## The query that was problematic
 
 The following query has a bug (in the last AND clause) - it is quite hard to catch it at first
-glance:
+glance. The `:from` and `:to` parameters are the meeting start and end times of a new meeting being
+created:
 
 ```sql
 SELECT *
@@ -45,13 +46,15 @@ meetings existing_meeting JOIN user_meetings um ON existing_meeting.id = um.meet
 WHERE um.user_id IN (:userIds)
 AND um.role_of_user IN ('OWNER', 'ACCEPTED')
 AND (
-  (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
-  OR
-  (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
+  (:from >= existing_meeting.from_ts AND :from <= existing_meeting.to_ts)
+   OR
+  (:to >= existing_meeting.from_ts AND :to <= existing_meeting.to_ts)
 )
 ```
 
-The red meeting overlaps with the exsiting meeting but is missed by this query:
+The logical reasoning behind this query is: if a meeting starts or ends in between another meeting,
+then it is an overlapping meeting. But this reasoning misses the red meeting, which overlaps with
+the existing meeting but is not detected by this query:
 
 <p align="center">
 <img src="src/test/resources/overlaps.jpg" width="600">
@@ -73,9 +76,9 @@ in [this commit](https://github.com/mourjo/quick-meetings/commit/7cb6fc948a49281
 Following is the fixed query clause (`:from` and `:to` are the starting and ending times of the new
 meeting about to be created):
 
-| Original Clause                                                                                                                                                                                                                                                                                        | Fixed Clause                                                                                       |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| <pre>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :from<br>&nbsp;&nbsp;&nbsp;&nbsp;AND <br>&nbsp;&nbsp;existing_meeting.to_ts >= :from<br>) <br><br>OR<br><br>(<br>&nbsp;&nbsp;existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;&nbsp;&nbsp;AND<br>&nbsp;&nbsp;existing_meeting.to_ts >= :to<br>)</pre> | <pre>existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;AND <br>existing_meeting.to_ts >= :from</pre> |
+| Original Clause                                                                                                                                                                                                                                                                                         | Fixed Clause                                                                                       |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| <pre>(<br>&nbsp;&nbsp;:from >= existing_meeting.from_ts <br>&nbsp;&nbsp;&nbsp;&nbsp;AND <br>&nbsp;&nbsp;:from <= existing_meeting.to_ts<br>) <br><br>OR<br><br>(<br>&nbsp;&nbsp;:to >= existing_meeting.from_ts <br>&nbsp;&nbsp;&nbsp;&nbsp;AND<br>&nbsp;&nbsp;:to <= existing_meeting.to_ts<br>)</pre> | <pre>existing_meeting.from_ts <= :to <br>&nbsp;&nbsp;AND <br>existing_meeting.to_ts >= :from</pre> |
 
 Arguably, the original clause, although incorrect, is more intuitive than the correct fixed clause.
 **The human tendency is to prefer an understandable solution over a more correct one.**
