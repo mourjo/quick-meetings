@@ -99,7 +99,7 @@ public class OverlappingMeetingsGenTest {
         // Ask the repository if the second meeting has any overlaps
         var overlappingMeetingsDb = findOverlaps(meeting2Start, debbie, meeting2End);
 
-        // Ask the oracle if the date times overlap - check if the repository result matches
+        // Verify programmatically if there is an overlap - check the query result matches
         if (doIntervalsOverlap(meeting1Start, meeting1End, meeting2Start, meeting2End)) {
             assertThat(overlappingMeetingsDb.size()).isEqualTo(1);
         } else {
