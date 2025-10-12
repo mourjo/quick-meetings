@@ -64,7 +64,7 @@ public class OverlappingMeetingsGenTest {
             // meeting 1 starts in between meeting 2's start and end
             || (meeting2Start.isAfter(meeting1Start) && meeting2Start.isBefore(meeting1End))
 
-            // meeting 1 ends in between meeting 2's start and end
+            // meeting 2 starts in between meeting 1's start and end
             || (meeting1Start.isAfter(meeting2Start) && meeting1Start.isBefore(meeting2End));
     }
 
