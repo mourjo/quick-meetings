@@ -3,6 +3,7 @@ package me.mourjo.quickmeetings.db;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
+
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -40,9 +41,9 @@ public interface MeetingRepository extends ListCrudRepository<Meeting, Long> {
         WHERE um.user_id IN (:userIds)
             AND um.role_of_user IN ('OWNER', 'ACCEPTED')
             AND (
-               (existing_meeting.from_ts <= :from AND existing_meeting.to_ts >= :from)
+               (:from >= existing_meeting.from_ts AND :from <= existing_meeting.to_ts)
                OR
-               (existing_meeting.from_ts <= :to AND existing_meeting.to_ts >= :to)
+               (:to >= existing_meeting.from_ts AND :to <= existing_meeting.to_ts)
             )
         """)
     List<Meeting> findOverlappingMeetingsForUser(
