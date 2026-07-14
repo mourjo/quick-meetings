@@ -5,6 +5,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.db.User;
@@ -129,14 +130,6 @@ public class MeetingsService {
 
         var meetingMaybe = meetingRepository.findById(meetingId);
         if (meetingMaybe.isPresent()) {
-            var meeting = meetingMaybe.get();
-            var overlappingMeetings = meetingRepository.findOverlappingMeetingsForUser(userId,
-                meeting.startAt(), meeting.endAt());
-
-            if (!overlappingMeetings.isEmpty()) {
-                throw new OverlappingMeetingsException();
-            }
-
             return userMeetingRepository.acceptInvite(meetingId, userId) == 1;
         }
         throw new MeetingNotFoundException(meetingId);
