@@ -1,88 +1,63 @@
 package me.mourjo.quickmeetings;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
+import net.jqwik.api.AfterFailureMode;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.jqwik.api.state.Action;
 import net.jqwik.api.state.ActionChain;
 import net.jqwik.api.state.Transformer;
-import net.jqwik.api.lifecycle.AfterTry;
-import net.jqwik.api.lifecycle.BeforeTry;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Property-based test that verifies the invariant: a person must never be part of two
- * meetings that overlap in time. Uses jqwik's ActionChain API for stateful testing,
- * generating random sequences of meeting operations and checking the no-overlap invariant
- * after every action.
+ * Property-based test that verifies the invariant: a person must never be part of two meetings that overlap in time. Uses jqwik's ActionChain API for stateful
+ * testing, generating random sequences of meeting operations and checking the no-overlap invariant after every action.
  */
 @SpringBootTest
 @JqwikSpringSupport
 class NoOverlappingMeetingsPropertyTest {
 
-    @Autowired
-    MeetingsService meetingsService;
-
-    @Autowired
-    UserService userService;
-
-    @Autowired
-    MeetingRepository meetingRepository;
-
-    @Autowired
-    JdbcTemplate jdbcTemplate;
-
     static final OffsetDateTime BASE_TIME =
         OffsetDateTime.of(2025, 6, 15, 8, 0, 0, 0, ZoneOffset.UTC);
-
-    /**
-     * Mutable state model tracked through the action chain. Holds references to created
-     * user and meeting IDs, plus the Spring services needed to execute actions.
-     */
-    static class MeetingSystemState {
-
-        final List<Long> userIds;
-        final List<Long> meetingIds;
-        final MeetingsService meetingsService;
-        final MeetingRepository meetingRepository;
-
-        MeetingSystemState(List<Long> userIds, MeetingsService meetingsService,
-            MeetingRepository meetingRepository) {
-            this.userIds = userIds;
-            this.meetingIds = new ArrayList<>();
-            this.meetingsService = meetingsService;
-            this.meetingRepository = meetingRepository;
-        }
-    }
+    @Autowired
+    MeetingsService meetingsService;
+    @Autowired
+    UserService userService;
+    @Autowired
+    MeetingRepository meetingRepository;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     /**
      * Clean all data after each try so that each generated test case starts fresh.
      */
-    @AfterTry
-    void cleanUp() {
+    @BeforeProperty
+    void cleanUp(@Autowired JdbcTemplate jdbcTemplate) {
         jdbcTemplate.execute("DELETE FROM user_meetings");
         jdbcTemplate.execute("DELETE FROM meetings");
         jdbcTemplate.execute("DELETE FROM users");
     }
 
-    @Property(tries = 200)
+    @Property(tries = 200, afterFailure = AfterFailureMode.RANDOM_SEED)
     void noPersonInTwoOverlappingMeetings(
         @ForAll("meetingActionChain") ActionChain<MeetingSystemState> chain
     ) {
@@ -100,8 +75,9 @@ class NoOverlappingMeetingsPropertyTest {
     @Provide
     Arbitrary<ActionChain<MeetingSystemState>> meetingActionChain() {
         return ActionChain.startWith(() -> {
+                cleanUp(jdbcTemplate);
                 // Create 2-5 users as initial state
-                int userCount = 2 + (int) (Math.random() * 4);
+                int userCount = 3;
                 List<Long> userIds = new ArrayList<>();
                 for (int i = 0; i < userCount; i++) {
                     var user = userService.createUser("user-" + i);
@@ -109,11 +85,11 @@ class NoOverlappingMeetingsPropertyTest {
                 }
                 return new MeetingSystemState(userIds, meetingsService, meetingRepository);
             })
-            .withAction(4, createMeetingAction())
-            .withAction(3, inviteAction())
-            .withAction(2, acceptAction())
-            .withAction(1, rejectAction())
-            .withMaxTransformations(30);
+            .withAction(createMeetingAction())
+            .withAction(inviteAction())
+            .withAction(acceptAction())
+            .withAction(rejectAction())
+            ;
     }
 
     /**
@@ -127,8 +103,8 @@ class NoOverlappingMeetingsPropertyTest {
                 return Combinators.combine(
                     Arbitraries.integers().between(0, state.userIds.size() - 1),
                     Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(10),
-                    Arbitraries.integers().between(0, 1440),
-                    Arbitraries.integers().between(15, 120)
+                    Arbitraries.integers().between(0, 100),
+                    Arbitraries.integers().between(15, 115)
                 ).as((userIdx, name, startMin, durMin) ->
                     Transformer.transform(
                         "CreateMeeting[user=%d, name=%s, start=+%dmin, dur=%dmin]"
@@ -272,6 +248,26 @@ class NoOverlappingMeetingsPropertyTest {
                     current.name(), current.startAt(), current.endAt(),
                     next.name(), next.startAt(), next.endAt())
                 .isBeforeOrEqualTo(next.startAt());
+        }
+    }
+
+    /**
+     * Mutable state model tracked through the action chain. Holds references to created user and meeting IDs, plus the Spring services needed to execute
+     * actions.
+     */
+    static class MeetingSystemState {
+
+        final List<Long> userIds;
+        final List<Long> meetingIds;
+        final MeetingsService meetingsService;
+        final MeetingRepository meetingRepository;
+
+        MeetingSystemState(List<Long> userIds, MeetingsService meetingsService,
+            MeetingRepository meetingRepository) {
+            this.userIds = userIds;
+            this.meetingIds = new ArrayList<>();
+            this.meetingsService = meetingsService;
+            this.meetingRepository = meetingRepository;
         }
     }
 }
