@@ -96,12 +96,11 @@ class NoOverlappingMeetingsPropertyTest {
      * Action: create a meeting owned by a random user at a random time window.
      */
     private Action<MeetingSystemState> createMeetingAction() {
-        return new Action.Dependent<>() {
+        return new Action.Independent<MeetingSystemState>() {
             @Override
-            public Arbitrary<Transformer<MeetingSystemState>> transformer(
-                MeetingSystemState state) {
+            public Arbitrary<Transformer<MeetingSystemState>> transformer() {
                 return Combinators.combine(
-                    Arbitraries.integers().between(0, state.userIds.size() - 1),
+                    Arbitraries.integers().between(0, 2),
                     Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(10),
                     Arbitraries.integers().between(0, 100),
                     Arbitraries.integers().between(15, 115)
@@ -110,7 +109,7 @@ class NoOverlappingMeetingsPropertyTest {
                         "CreateMeeting[user=%d, name=%s, start=+%dmin, dur=%dmin]"
                             .formatted(userIdx, name, startMin, durMin),
                         s -> {
-                            long userId = s.userIds.get(userIdx);
+                            long userId = s.userIds.get(userIdx % s.userIds.size());
                             var from = BASE_TIME.plusMinutes(startMin);
                             var to = from.plusMinutes(durMin);
                             try {
@@ -133,24 +132,23 @@ class NoOverlappingMeetingsPropertyTest {
      * Action: invite a random user to a random existing meeting.
      */
     private Action<MeetingSystemState> inviteAction() {
-        return new Action.Dependent<>() {
+        return new Action.Independent<MeetingSystemState>() {
             @Override
-            public boolean precondition(MeetingSystemState state) {
-                return !state.meetingIds.isEmpty();
-            }
-
-            @Override
-            public Arbitrary<Transformer<MeetingSystemState>> transformer(
-                MeetingSystemState state) {
+            public Arbitrary<Transformer<MeetingSystemState>> transformer() {
                 return Combinators.combine(
-                    Arbitraries.integers().between(0, state.userIds.size() - 1),
-                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                    Arbitraries.integers().between(0, 2),
+                    Arbitraries.integers().between(0, 9)
                 ).as((userIdx, meetingIdx) ->
                     Transformer.transform(
                         "Invite[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
                         s -> {
-                            long userId = s.userIds.get(userIdx);
-                            long meetingId = s.meetingIds.get(meetingIdx);
+                            if (s.meetingIds.isEmpty()) {
+                                return s;
+                            }
+                            long userId = s.userIds.get(userIdx % s.userIds.size());
+                            long meetingId = s.meetingIds.get(
+                                meetingIdx % s.meetingIds.size()
+                            );
                             try {
                                 s.meetingsService.invite(meetingId, userId);
                             } catch (OverlappingMeetingsException e) {
@@ -168,24 +166,23 @@ class NoOverlappingMeetingsPropertyTest {
      * Action: accept a meeting invitation.
      */
     private Action<MeetingSystemState> acceptAction() {
-        return new Action.Dependent<>() {
+        return new Action.Independent<MeetingSystemState>() {
             @Override
-            public boolean precondition(MeetingSystemState state) {
-                return !state.meetingIds.isEmpty();
-            }
-
-            @Override
-            public Arbitrary<Transformer<MeetingSystemState>> transformer(
-                MeetingSystemState state) {
+            public Arbitrary<Transformer<MeetingSystemState>> transformer() {
                 return Combinators.combine(
-                    Arbitraries.integers().between(0, state.userIds.size() - 1),
-                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                    Arbitraries.integers().between(0, 2),
+                    Arbitraries.integers().between(0, 9)
                 ).as((userIdx, meetingIdx) ->
                     Transformer.transform(
                         "Accept[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
                         s -> {
-                            long userId = s.userIds.get(userIdx);
-                            long meetingId = s.meetingIds.get(meetingIdx);
+                            if (s.meetingIds.isEmpty()) {
+                                return s;
+                            }
+                            long userId = s.userIds.get(userIdx % s.userIds.size());
+                            long meetingId = s.meetingIds.get(
+                                meetingIdx % s.meetingIds.size()
+                            );
                             try {
                                 s.meetingsService.accept(meetingId, userId);
                             } catch (OverlappingMeetingsException e) {
@@ -203,24 +200,23 @@ class NoOverlappingMeetingsPropertyTest {
      * Action: reject a meeting invitation.
      */
     private Action<MeetingSystemState> rejectAction() {
-        return new Action.Dependent<>() {
+        return new Action.Independent<MeetingSystemState>() {
             @Override
-            public boolean precondition(MeetingSystemState state) {
-                return !state.meetingIds.isEmpty();
-            }
-
-            @Override
-            public Arbitrary<Transformer<MeetingSystemState>> transformer(
-                MeetingSystemState state) {
+            public Arbitrary<Transformer<MeetingSystemState>> transformer() {
                 return Combinators.combine(
-                    Arbitraries.integers().between(0, state.userIds.size() - 1),
-                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                    Arbitraries.integers().between(0, 2),
+                    Arbitraries.integers().between(0, 9)
                 ).as((userIdx, meetingIdx) ->
                     Transformer.transform(
                         "Reject[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
                         s -> {
-                            long userId = s.userIds.get(userIdx);
-                            long meetingId = s.meetingIds.get(meetingIdx);
+                            if (s.meetingIds.isEmpty()) {
+                                return s;
+                            }
+                            long userId = s.userIds.get(userIdx % s.userIds.size());
+                            long meetingId = s.meetingIds.get(
+                                meetingIdx % s.meetingIds.size()
+                            );
                             s.meetingsService.reject(meetingId, userId);
                             return s;
                         }
