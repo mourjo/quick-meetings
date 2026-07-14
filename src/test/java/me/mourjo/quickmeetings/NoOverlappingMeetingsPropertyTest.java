@@ -17,8 +17,11 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
-import net.jqwik.api.Tuple;
+import net.jqwik.api.state.Action;
+import net.jqwik.api.state.ActionChain;
+import net.jqwik.api.state.Transformer;
 import net.jqwik.api.lifecycle.AfterTry;
+import net.jqwik.api.lifecycle.BeforeTry;
 import net.jqwik.spring.JqwikSpringSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,9 +29,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Property-based test that verifies the invariant: a person must never be part of two
- * meetings that overlap in time. The test generates random sequences of meeting operations
- * (create users, create meetings, invite users, accept/reject invites) and asserts the
- * invariant holds after every sequence.
+ * meetings that overlap in time. Uses jqwik's ActionChain API for stateful testing,
+ * generating random sequences of meeting operations and checking the no-overlap invariant
+ * after every action.
  */
 @SpringBootTest
 @JqwikSpringSupport
@@ -46,8 +49,31 @@ class NoOverlappingMeetingsPropertyTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    static final OffsetDateTime BASE_TIME =
+        OffsetDateTime.of(2025, 6, 15, 8, 0, 0, 0, ZoneOffset.UTC);
+
     /**
-     * Clean all data after each try so that each generated test case starts from a fresh state.
+     * Mutable state model tracked through the action chain. Holds references to created
+     * user and meeting IDs, plus the Spring services needed to execute actions.
+     */
+    static class MeetingSystemState {
+
+        final List<Long> userIds;
+        final List<Long> meetingIds;
+        final MeetingsService meetingsService;
+        final MeetingRepository meetingRepository;
+
+        MeetingSystemState(List<Long> userIds, MeetingsService meetingsService,
+            MeetingRepository meetingRepository) {
+            this.userIds = userIds;
+            this.meetingIds = new ArrayList<>();
+            this.meetingsService = meetingsService;
+            this.meetingRepository = meetingRepository;
+        }
+    }
+
+    /**
+     * Clean all data after each try so that each generated test case starts fresh.
      */
     @AfterTry
     void cleanUp() {
@@ -56,164 +82,176 @@ class NoOverlappingMeetingsPropertyTest {
         jdbcTemplate.execute("DELETE FROM users");
     }
 
-    /**
-     * A sealed interface representing the actions that can be performed on the system.
-     */
-    sealed interface MeetingAction {
-
-        /**
-         * Create a meeting for a user at a specific time window.
-         *
-         * @param userIndex     index into the list of created users (modular)
-         * @param name          meeting name
-         * @param startMinutes  start time as minutes offset from a base time
-         * @param durationMinutes duration of the meeting in minutes
-         */
-        record CreateMeeting(int userIndex, String name, int startMinutes,
-                             int durationMinutes) implements MeetingAction {
-
-        }
-
-        /**
-         * Invite a user to an existing meeting.
-         *
-         * @param userIndex    index of the user to invite
-         * @param meetingIndex index of the meeting to invite to
-         */
-        record InviteToMeeting(int userIndex, int meetingIndex) implements MeetingAction {
-
-        }
-
-        /**
-         * Accept a meeting invitation.
-         *
-         * @param userIndex    index of the user accepting
-         * @param meetingIndex index of the meeting to accept
-         */
-        record AcceptInvite(int userIndex, int meetingIndex) implements MeetingAction {
-
-        }
-
-        /**
-         * Reject a meeting invitation.
-         *
-         * @param userIndex    index of the user rejecting
-         * @param meetingIndex index of the meeting to reject
-         */
-        record RejectInvite(int userIndex, int meetingIndex) implements MeetingAction {
-
-        }
-    }
-
-    @Provide
-    Arbitrary<List<MeetingAction>> meetingActions() {
-        Arbitrary<MeetingAction> createMeeting = Combinators.combine(
-            Arbitraries.integers().between(0, 4),       // userIndex
-            Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(10), // name
-            Arbitraries.integers().between(0, 1440),    // startMinutes (within a day)
-            Arbitraries.integers().between(15, 120)     // durationMinutes
-        ).as(MeetingAction.CreateMeeting::new);
-
-        Arbitrary<MeetingAction> inviteToMeeting = Combinators.combine(
-            Arbitraries.integers().between(0, 4),       // userIndex
-            Arbitraries.integers().between(0, 9)        // meetingIndex
-        ).as(MeetingAction.InviteToMeeting::new);
-
-        Arbitrary<MeetingAction> acceptInvite = Combinators.combine(
-            Arbitraries.integers().between(0, 4),       // userIndex
-            Arbitraries.integers().between(0, 9)        // meetingIndex
-        ).as(MeetingAction.AcceptInvite::new);
-
-        Arbitrary<MeetingAction> rejectInvite = Combinators.combine(
-            Arbitraries.integers().between(0, 4),       // userIndex
-            Arbitraries.integers().between(0, 9)        // meetingIndex
-        ).as(MeetingAction.RejectInvite::new);
-
-        return Arbitraries.frequencyOf(
-            // More creates so we build up state, then a mix of invite/accept/reject
-            Tuple.of(4, createMeeting),
-            Tuple.of(3, inviteToMeeting),
-            Tuple.of(2, acceptInvite),
-            Tuple.of(1, rejectInvite)
-        ).list().ofMinSize(5).ofMaxSize(30);
-    }
-
     @Property(tries = 200)
     void noPersonInTwoOverlappingMeetings(
-        @ForAll("meetingActions") List<MeetingAction> actions,
-        @ForAll("userCount") int userCount
+        @ForAll("meetingActionChain") ActionChain<MeetingSystemState> chain
     ) {
-        // --- Setup: create between 2 and 5 users ---
-        List<Long> userIds = new ArrayList<>();
-        for (int i = 0; i < userCount; i++) {
-            var user = userService.createUser("user-" + i);
-            userIds.add(user.id());
-        }
-
-        List<Long> meetingIds = new ArrayList<>();
-
-        var baseTime = OffsetDateTime.of(2025, 6, 15, 8, 0, 0, 0, ZoneOffset.UTC);
-
-        // --- Execute actions ---
-        for (var action : actions) {
-            try {
-                switch (action) {
-                    case MeetingAction.CreateMeeting cm -> {
-                        long userId = userIds.get(cm.userIndex() % userIds.size());
-                        var from = baseTime.plusMinutes(cm.startMinutes());
-                        var to = from.plusMinutes(cm.durationMinutes());
-                        var meeting = meetingsService.createMeeting(
-                            cm.name(), userId, from, to
-                        );
-                        meetingIds.add(meeting.id());
-                    }
-                    case MeetingAction.InviteToMeeting inv -> {
-                        if (meetingIds.isEmpty()) {
-                            continue;
-                        }
-                        long userId = userIds.get(inv.userIndex() % userIds.size());
-                        long meetingId = meetingIds.get(
-                            inv.meetingIndex() % meetingIds.size()
-                        );
-                        meetingsService.invite(meetingId, userId);
-                    }
-                    case MeetingAction.AcceptInvite acc -> {
-                        if (meetingIds.isEmpty()) {
-                            continue;
-                        }
-                        long userId = userIds.get(acc.userIndex() % userIds.size());
-                        long meetingId = meetingIds.get(
-                            acc.meetingIndex() % meetingIds.size()
-                        );
-                        meetingsService.accept(meetingId, userId);
-                    }
-                    case MeetingAction.RejectInvite rej -> {
-                        if (meetingIds.isEmpty()) {
-                            continue;
-                        }
-                        long userId = userIds.get(rej.userIndex() % userIds.size());
-                        long meetingId = meetingIds.get(
-                            rej.meetingIndex() % meetingIds.size()
-                        );
-                        meetingsService.reject(meetingId, userId);
-                    }
+        chain
+            .withInvariant("no person in two overlapping meetings", state -> {
+                for (long userId : state.userIds) {
+                    var confirmedMeetings =
+                        state.meetingRepository.findAllConfirmedMeetingsForUser(userId);
+                    assertNoOverlap(userId, confirmedMeetings);
                 }
-            } catch (OverlappingMeetingsException e) {
-                // This is expected — the system correctly prevented an overlap
-            }
-        }
-
-        // --- Verify the invariant ---
-        // For every user, fetch their confirmed meetings and assert none overlap
-        for (long userId : userIds) {
-            var confirmedMeetings = meetingRepository.findAllConfirmedMeetingsForUser(userId);
-            assertNoOverlap(userId, confirmedMeetings);
-        }
+            })
+            .run();
     }
 
     @Provide
-    Arbitrary<Integer> userCount() {
-        return Arbitraries.integers().between(2, 5);
+    Arbitrary<ActionChain<MeetingSystemState>> meetingActionChain() {
+        return ActionChain.startWith(() -> {
+                // Create 2-5 users as initial state
+                int userCount = 2 + (int) (Math.random() * 4);
+                List<Long> userIds = new ArrayList<>();
+                for (int i = 0; i < userCount; i++) {
+                    var user = userService.createUser("user-" + i);
+                    userIds.add(user.id());
+                }
+                return new MeetingSystemState(userIds, meetingsService, meetingRepository);
+            })
+            .withAction(4, createMeetingAction())
+            .withAction(3, inviteAction())
+            .withAction(2, acceptAction())
+            .withAction(1, rejectAction())
+            .withMaxTransformations(30);
+    }
+
+    /**
+     * Action: create a meeting owned by a random user at a random time window.
+     */
+    private Action<MeetingSystemState> createMeetingAction() {
+        return new Action.Dependent<>() {
+            @Override
+            public Arbitrary<Transformer<MeetingSystemState>> transformer(
+                MeetingSystemState state) {
+                return Combinators.combine(
+                    Arbitraries.integers().between(0, state.userIds.size() - 1),
+                    Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(10),
+                    Arbitraries.integers().between(0, 1440),
+                    Arbitraries.integers().between(15, 120)
+                ).as((userIdx, name, startMin, durMin) ->
+                    Transformer.transform(
+                        "CreateMeeting[user=%d, name=%s, start=+%dmin, dur=%dmin]"
+                            .formatted(userIdx, name, startMin, durMin),
+                        s -> {
+                            long userId = s.userIds.get(userIdx);
+                            var from = BASE_TIME.plusMinutes(startMin);
+                            var to = from.plusMinutes(durMin);
+                            try {
+                                var meeting = s.meetingsService.createMeeting(
+                                    name, userId, from, to
+                                );
+                                s.meetingIds.add(meeting.id());
+                            } catch (OverlappingMeetingsException e) {
+                                // Expected — system correctly prevented overlap
+                            }
+                            return s;
+                        }
+                    )
+                );
+            }
+        };
+    }
+
+    /**
+     * Action: invite a random user to a random existing meeting.
+     */
+    private Action<MeetingSystemState> inviteAction() {
+        return new Action.Dependent<>() {
+            @Override
+            public boolean precondition(MeetingSystemState state) {
+                return !state.meetingIds.isEmpty();
+            }
+
+            @Override
+            public Arbitrary<Transformer<MeetingSystemState>> transformer(
+                MeetingSystemState state) {
+                return Combinators.combine(
+                    Arbitraries.integers().between(0, state.userIds.size() - 1),
+                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                ).as((userIdx, meetingIdx) ->
+                    Transformer.transform(
+                        "Invite[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
+                        s -> {
+                            long userId = s.userIds.get(userIdx);
+                            long meetingId = s.meetingIds.get(meetingIdx);
+                            try {
+                                s.meetingsService.invite(meetingId, userId);
+                            } catch (OverlappingMeetingsException e) {
+                                // Expected
+                            }
+                            return s;
+                        }
+                    )
+                );
+            }
+        };
+    }
+
+    /**
+     * Action: accept a meeting invitation.
+     */
+    private Action<MeetingSystemState> acceptAction() {
+        return new Action.Dependent<>() {
+            @Override
+            public boolean precondition(MeetingSystemState state) {
+                return !state.meetingIds.isEmpty();
+            }
+
+            @Override
+            public Arbitrary<Transformer<MeetingSystemState>> transformer(
+                MeetingSystemState state) {
+                return Combinators.combine(
+                    Arbitraries.integers().between(0, state.userIds.size() - 1),
+                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                ).as((userIdx, meetingIdx) ->
+                    Transformer.transform(
+                        "Accept[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
+                        s -> {
+                            long userId = s.userIds.get(userIdx);
+                            long meetingId = s.meetingIds.get(meetingIdx);
+                            try {
+                                s.meetingsService.accept(meetingId, userId);
+                            } catch (OverlappingMeetingsException e) {
+                                // Expected
+                            }
+                            return s;
+                        }
+                    )
+                );
+            }
+        };
+    }
+
+    /**
+     * Action: reject a meeting invitation.
+     */
+    private Action<MeetingSystemState> rejectAction() {
+        return new Action.Dependent<>() {
+            @Override
+            public boolean precondition(MeetingSystemState state) {
+                return !state.meetingIds.isEmpty();
+            }
+
+            @Override
+            public Arbitrary<Transformer<MeetingSystemState>> transformer(
+                MeetingSystemState state) {
+                return Combinators.combine(
+                    Arbitraries.integers().between(0, state.userIds.size() - 1),
+                    Arbitraries.integers().between(0, state.meetingIds.size() - 1)
+                ).as((userIdx, meetingIdx) ->
+                    Transformer.transform(
+                        "Reject[user=%d, meeting=%d]".formatted(userIdx, meetingIdx),
+                        s -> {
+                            long userId = s.userIds.get(userIdx);
+                            long meetingId = s.meetingIds.get(meetingIdx);
+                            s.meetingsService.reject(meetingId, userId);
+                            return s;
+                        }
+                    )
+                );
+            }
+        };
     }
 
     /**
