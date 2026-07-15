@@ -9,6 +9,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import me.mourjo.quickmeetings.db.Meeting;
 import me.mourjo.quickmeetings.db.MeetingRepository;
+import me.mourjo.quickmeetings.db.UserMeeting;
+import me.mourjo.quickmeetings.db.UserMeeting.RoleOfUser;
+import me.mourjo.quickmeetings.db.UserMeetingRepository;
 import me.mourjo.quickmeetings.exceptions.OverlappingMeetingsException;
 import me.mourjo.quickmeetings.service.MeetingsService;
 import me.mourjo.quickmeetings.service.UserService;
@@ -34,7 +37,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  */
 @SpringBootTest
 @JqwikSpringSupport
-class NoOverlappingMeetingsPropertyTest {
+class MeetingInvariantsPropertyTest {
 
     static final OffsetDateTime BASE_TIME =
         OffsetDateTime.of(2025, 6, 15, 8, 0, 0, 0, ZoneOffset.UTC);
@@ -44,6 +47,8 @@ class NoOverlappingMeetingsPropertyTest {
     UserService userService;
     @Autowired
     MeetingRepository meetingRepository;
+    @Autowired
+    UserMeetingRepository userMeetingRepository;
     @Autowired
     JdbcTemplate jdbcTemplate;
 
@@ -72,6 +77,32 @@ class NoOverlappingMeetingsPropertyTest {
             .run();
     }
 
+    @Property(tries = 200, afterFailure = AfterFailureMode.RANDOM_SEED)
+    void everyMeetingHasAtLeastOneConfirmedAttendee(
+        @ForAll("meetingActionChain") ActionChain<MeetingSystemState> chain
+    ) {
+        chain
+            .withInvariant("every meeting has at least one confirmed attendee", state -> {
+                if (state.meetingIds.isEmpty()) {
+                    return;
+                }
+                var allAttendees = state.userMeetingRepository
+                    .meetingAttendees(state.meetingIds);
+                for (long meetingId : state.meetingIds) {
+                    var confirmed = allAttendees.stream()
+                        .filter(um -> um.meetingId() == meetingId)
+                        .filter(um -> um.userRole() == RoleOfUser.OWNER
+                            || um.userRole() == RoleOfUser.ACCEPTED)
+                        .toList();
+                    assertThat(confirmed)
+                        .as("Meeting %d must have at least one confirmed attendee (OWNER or ACCEPTED)",
+                            meetingId)
+                        .isNotEmpty();
+                }
+            })
+            .run();
+    }
+
     @Provide
     Arbitrary<ActionChain<MeetingSystemState>> meetingActionChain() {
         return ActionChain.startWith(() -> {
@@ -83,7 +114,7 @@ class NoOverlappingMeetingsPropertyTest {
                     var user = userService.createUser("user-" + i);
                     userIds.add(user.id());
                 }
-                return new MeetingSystemState(userIds, meetingsService, meetingRepository);
+                return new MeetingSystemState(userIds, meetingsService, meetingRepository, userMeetingRepository);
             })
             .withAction(createMeetingAction())
             .withAction(inviteAction())
@@ -257,13 +288,15 @@ class NoOverlappingMeetingsPropertyTest {
         final List<Long> meetingIds;
         final MeetingsService meetingsService;
         final MeetingRepository meetingRepository;
+        final UserMeetingRepository userMeetingRepository;
 
         MeetingSystemState(List<Long> userIds, MeetingsService meetingsService,
-            MeetingRepository meetingRepository) {
+            MeetingRepository meetingRepository, UserMeetingRepository userMeetingRepository) {
             this.userIds = userIds;
             this.meetingIds = new ArrayList<>();
             this.meetingsService = meetingsService;
             this.meetingRepository = meetingRepository;
+            this.userMeetingRepository = userMeetingRepository;
         }
     }
 }
